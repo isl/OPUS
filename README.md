@@ -1,4 +1,6 @@
 # LAWA
+## Scripts modification
+#### In every script modify all fields of spark submit (master, memory,path_to_jar etc.)
 
 ## Script Arguments
 #### __num_partitions:__ the number of partitions that we want to split the dataset
