@@ -1,6 +1,6 @@
 # LAWA
 
-##Script Arguments
+## Script Arguments
 ### __num_partitions:__ the number of partitions that we want to split the dataset
 
 ### **dataset_name:** a specific name for each dataset. (same name must be used in all procedures for a specific dataset)
@@ -16,10 +16,10 @@
 ### **balance:** 0 for lap partitioning 1 for BLAP
 
 ## To run LAP use the script run_lap like this:
-### ./run_lap.sh num_partitions dataset_name hdfs_path instance_path schema_path
+#### ./run_lap.sh num_partitions dataset_name hdfs_path instance_path schema_path
 
 ## To run BLAP use the script run_blap like this:
-### ./run_blap.sh num_partitions dataset_name hdfs_path instance_path schema_path
+#### ./run_blap.sh num_partitions dataset_name hdfs_path instance_path schema_path
 
 ## To run translator use the script run_translator like this:
-### ./run_translator.sh num_partitions dataset_name balance hdfs_path sparql_input_folder
+#### ./run_translator.sh num_partitions dataset_name balance hdfs_path sparql_input_folder
