@@ -1,7 +1,7 @@
-/home/spark/spark/bin/spark-submit \
+spark-submit \
 --class org.ics.isl.LAP \
---driver-memory 10G \
---executor-memory 210G \
+--driver-memory DRIVER_MEM \
+--executor-memory EXECUTOR_MEM \
 --conf spark.speculation=true \
---master mesos://zk://clusternode1:2181,clusternode2:2181,clusternode3:2181/mesos \
-/home/jagathan/LAWA/target/LAWA-1.0-SNAPSHOT.jar $1 $2
+--master MASTER \
+PATH_TO_JAR $1 $2 $3 $4 $5
