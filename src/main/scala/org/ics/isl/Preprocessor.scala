@@ -13,44 +13,45 @@ import java.io._
 import sys.process._
 
 object Preprocessor {
-    def initializeGraphs(spark: SparkSession) = {
+
+    def initializeGraphs(spark: SparkSession, dataset: String, hdfs: String, schemaPath: String, instancePath: String) = {
         val sc = spark.sparkContext
-        if(!HdfsUtils.hdfsExists(Constants.schemaVerticesFile))
-           createSchemaGraph(spark)  
-        if(!HdfsUtils.hdfsExists(Constants.instanceVerticesFile))
-            createInstanceGraph3(spark)
+        if(!HdfsUtils.hdfsExists(dataset + Constants.schemaVerticesFile))
+           createSchemaGraph(spark, dataset, hdfs, schemaPath)  
+        if(!HdfsUtils.hdfsExists(dataset + Constants.instanceVerticesFile))
+            createInstanceGraph(spark, dataset, hdfs, instancePath)
     }
 
-    def computeMeasures(sc: SparkContext, instanceGraph: Graph[(String, Seq[String], Seq[(String, String)]), String], schemaGraph: Graph[String, (String, Double)]) = {
+    def computeMeasures(sc: SparkContext, instanceGraph: Graph[(String, Seq[String], Seq[(String, String)]), String], schemaGraph: Graph[String, (String, Double)], dataset: String, hdfs: String) = {
         val metaPath = Constants.huaBCFile.substring(0, Constants.huaBCFile.lastIndexOf("/"))
         
         if(!new File(metaPath).exists) {
             val mkdir = "mkdir " + metaPath !
         }
-        if(!HdfsUtils.hdfsExists(Constants.schemaCC))
-            computeCC(instanceGraph)
-        if(!new File(Constants.huaBCFile).exists)    
-            computeHuaBC(schemaGraph)
-        if(!new File(Constants.schemaNodeFrequency).exists)        
-            computeSchemaNodeFreq(instanceGraph)
-        if(!new File(Constants.schemaImportance).exists)        
-            computeNodeImportance(sc, schemaGraph)
-        if(!new File(Constants.schemaNodeCount).exists)        
-            computeSchemaNodeCount(instanceGraph)
+        if(!HdfsUtils.hdfsExists(dataset + Constants.schemaCC))
+            computeCC(instanceGraph,dataset, hdfs)
+        if(!new File(dataset + Constants.huaBCFile).exists)    
+            computeHuaBC(schemaGraph, dataset)
+        if(!new File(dataset + Constants.schemaNodeFrequency).exists)        
+            computeSchemaNodeFreq(instanceGraph, dataset)
+        if(!new File(dataset + Constants.schemaImportance).exists)        
+            computeNodeImportance(sc, schemaGraph, dataset)
+        if(!new File(dataset + Constants.schemaNodeCount).exists)        
+            computeSchemaNodeCount(instanceGraph, dataset)
     }
 
-	def createSchemaGraph(spark: SparkSession) = {
+	def createSchemaGraph(spark: SparkSession, dataset: String, hdfs: String, schemaPath: String) = {
         import spark.implicits._
         val sc = spark.sparkContext
-        val schemaRdd = if(Constants.schemaPath.contains("lubm")){
-            sc.textFile(Constants.schemaPath).filter(!_.startsWith("#"))
+        val schemaRdd = if(dataset.contains("lubm")){
+            sc.textFile(schemaPath).filter(!_.startsWith("#"))
 				.map(x => x.split("\\s+", 3).map(toUri(_)))
                 .map(x => (x(0), (x(1), x(2))))
                 //.filter{case(s,(p, o)) => s.contains("http") && o.contains("http")}
                 .distinct.cache
         } 
         else {
-            sc.textFile(Constants.schemaPath).filter(!_.startsWith("#"))
+            sc.textFile(schemaPath).filter(!_.startsWith("#"))
                 .map(x => x.split("\\s+", 3).map(toUri(_)))
                 .map(x => (x(0), (x(1), x(2))))
                 .distinct.cache
@@ -68,8 +69,8 @@ object Preprocessor {
         val edgeDs = edges.toDF.as[Types.SchemaEdge]
         val vertexDs = vertexRdd.map{case(uri, id) => Types.SchemaVertex(id, uri)}.toDF.as[Types.SchemaVertex]
 
-        edgeDs.write.format("parquet").save(Constants.HDFS + Constants.schemaEdgesFile)
-        vertexDs.write.format("parquet").save(Constants.HDFS + Constants.schemaVerticesFile)
+        edgeDs.write.format("parquet").save(hdfs + dataset + Constants.schemaEdgesFile)
+        vertexDs.write.format("parquet").save(hdfs + dataset + Constants.schemaVerticesFile)
 
         schemaRdd.unpersist()
         vertexRdd.unpersist()		
@@ -101,35 +102,16 @@ object Preprocessor {
         })
         return true
     }
-    def saveVerticesToFile(spark: SparkSession) = {
-        val sc = spark.sparkContext    
-        val instanceRdd =  sc.textFile(Constants.instancePath)
-                                .filter(!_.startsWith("#"))
-                                .map(_.split("\\s+", 3))
-                                .map(t => (t(0), t(1), t(2).dropRight(2)))
-                                .filter{case(s, p, o) => validTriple(s, p, o)}
-                                .distinct
-
-        val vertexRdd = instanceRdd.flatMap{case(s, p, o) => Seq(s, o)}
-                                    .distinct
-                                    .zipWithIndex
-                                    .map{case(uri, id) => id + "\t" + uri}
-
-        vertexRdd.saveAsTextFile(Constants.HDFS + "zip_vertices")
-
-
-    }
-
+   
     def isLiteral(str: String): Boolean = {str.startsWith("\"")}
     
-    def createInstanceGraph3(spark: SparkSession) = {
+    def createInstanceGraph(spark: SparkSession, dataset: String, hdfs: String, instancePath: String) = {
         import spark.implicits._
         val sc = spark.sparkContext    
-        val instanceRdd =  sc.textFile(Constants.instancePath)
+        val instanceRdd =  sc.textFile(instancePath)
                                 .filter(!_.startsWith("#"))
                                 .map(_.split("\\s+", 3))
                                 .map(t => (t(0).trim, t(1).trim, t(2).dropRight(2).trim))
-                               // .distinct
         
         val typedVertices = instanceRdd.flatMap{case(s, p, o) => {
             if(p == Constants.RDF_TYPE)
@@ -160,43 +142,10 @@ object Preprocessor {
         val edgeDs = edges.filter{case(s, o, p) => s != -1L && o != -1L}.map{case(s, o, p) => Types.InstanceEdge(s, o, p)}.toDF.as[Types.InstanceEdge]
         val vertexDs = vertexRdd.map{case(uri, (types, labels, id)) => Types.InstanceVertex(id, (uri, types, labels))}.toDF.as[Types.InstanceVertex]
 
-        edgeDs.write.format("parquet").save(Constants.HDFS + Constants.instanceEdgesFile)
-        vertexDs.write.format("parquet").save(Constants.HDFS + Constants.instanceVerticesFile)
+        edgeDs.write.format("parquet").save(hdfs + dataset + Constants.instanceEdgesFile)
+        vertexDs.write.format("parquet").save(hdfs + dataset + Constants.instanceVerticesFile)
     }
 
-    // def createInstanceGraph(spark: SparkSession) = {
-    //     import spark.implicits._
-    //     val sc = spark.sparkContext    
-    //     val instanceRdd =  sc.textFile(Constants.instancePath)
-    //                             .filter(!_.startsWith("#"))
-    //                             .map(_.split("\\s+", 3))
-    //                             .map(t => (t(0), t(1), t(2).dropRight(2)))
-    //                             .filter{case(s, p, o) => validTriple(s, p, o)}
-    //                             .map(t => createTriple(t))
-    //                             .distinct
-        
-    //     val typedVertices = instanceRdd.flatMap{case(s, o, p) => {
-    //         if(p == Constants.RDF_TYPE)
-    //             Seq((s , Seq(o._1)))
-    //         else
-    //             Seq((s, Seq()), (o, Seq()))
-    //     }}
-
-    //     val vertexRdd = typedVertices.reduceByKey(_++_)
-    //                                  .map{case((uri, id), types) => (id, (uri, types))}
-
-    //     val edgeRdd = instanceRdd.filter{case(s, o, p) => p != Constants.RDF_TYPE}
-    //                                 .map{case((s, sId), (o, oId), p) => (sId, oId, p)}
-
-    //     // val filteredInstances = instanceRdd.filter{case(s, p, o) => p != Constants.RDF_TYPE}
-    //     // val edges = filteredInstances.map{case(s, p, o) => (uriHash(s), uriHash(o), p)}
-        
-    //     val edgeDs = edgeRdd.map{case(s, o, p) => Types.InstanceEdge(s, o, p)}.toDF.as[Types.InstanceEdge]                                   
-    //     val vertexDs = vertexRdd.map{case(id, (uri, types)) => Types.InstanceVertex(id, (uri, types))}.toDF.as[Types.InstanceVertex]
-
-    //     edgeDs.write.format("parquet").save(Constants.HDFS + Constants.instanceEdgesFile)
-    //     vertexDs.write.format("parquet").save(Constants.HDFS + Constants.instanceVerticesFile)
-    // }
 
     def createTriple(triple: (String, String, String)): ((String, Long), (String, Long), String) = {
         val (s, p, o) = triple
@@ -211,123 +160,6 @@ object Preprocessor {
     def uriHash(uri: String): Long = {uri.toLowerCase.hashCode.toLong}
 
     def literalHash(literal: String): Long = {Random.nextLong()}
-
-	// def createInstanceGraph2(spark: SparkSession) = {
- //        import spark.implicits._
- //        val sc = spark.sparkContext    
- //        val instanceRdd =  sc.textFile(Constants.instancePath)
- //                                .filter(!_.startsWith("#"))
- //                                .map(_.split("\\s+", 3))
- //                                .map(t => (t(0), (t(1), t(2).dropRight(2))))
- //                                .filter{case(s, (p, o)) => validTriple(s, p, o)}
- //                                .distinct
- //        instanceRdd.cache       
-        
- //        val typedVertices = instanceRdd.flatMap{case(s, (p, o)) => {
- //            if(p == Constants.RDF_TYPE)
- //                Seq((s , Seq(o)))
- //            else
- //                Seq((s, Seq()), (o, Seq()))
- //        }}
-        
- //        val vertexRdd = typedVertices.reduceByKey(_++_)
- //                                    .zipWithIndex
- //                                    .map{case((node, types), id) => (node, (types, id))}
-      
-
- //        val filteredInstances = instanceRdd.filter{case(s, (p, o)) => p != Constants.RDF_TYPE}
- //        val numPartitions = vertexRdd.partitions.size
- //        val vertices = vertexRdd.map{case(node, (types, id)) => (node, id)}.repartition(numPartitions*3)
-
- //        // val edgeSubjIds = filteredInstances.join(vertices).map{case(s, ((p, o), sId)) => (o, (p, sId))}
- //        // val edges = edgeSubjIds.join(vertices).map{case(o, ((p, sId), oId)) => (sId, oId, p)}
-
- //        // val verticeMap = vertices.collectAsMap
- //        // val brMap = sc.broadcast(verticeMap)
- //        // val edges = instanceRdd.map{case(s, (p, o)) => (brMap.value(s), brMap.value(o), p)}
- //        //                         .distinct
-        
-
- //        val edges = createEdgeRdd(sc, vertices, instanceRdd.map(x => (x._1, x._2._1, x._2._2)))
- //        val edgeDs = edges.map{case(s, o, p) => Types.InstanceEdge(s, o, p)}.toDF.as[Types.InstanceEdge]                                   
- //        val vertexDs = vertexRdd.map{case(s, (types, id)) => Types.InstanceVertex(id, (s, types))}.toDF.as[Types.InstanceVertex]
-
- //        edgeDs.write.format("parquet").save(Constants.HDFS + Constants.instanceEdgesFile)
- //        vertexDs.write.format("parquet").save(Constants.HDFS + Constants.instanceVerticesFile)
-
- //        vertexRdd.unpersist()        
-	// }
-
-    def testGraphGeneration(sc: SparkContext) = {
-        val instances = Seq(("jagathan" ,"firstname" ,"\"john\""), ("jagathan" ,"lastname" ,"\"agathan\""), 
-                            ("uoc" ,"type" ,"univerity"), ("uoc" ,"place" ,"crete"), ("uoc" ,"property" ,"\"qwdioqweiqwd" +
-                            "IOUO0I [    qwqwpdokq1`34214r2142132`   2 2  ete\""))
-
-        val instanceRdd = sc.parallelize(instances).map{case(s, p ,o) => (s, (p, o))}      
-        val vertexRdd = instanceRdd.flatMap{case(s, (p ,o)) => Seq(s, o)}.distinct.zipWithIndex
-        println("Vertices")
-        vertexRdd.collect.foreach(println)
-
-        val edgeSubjIds = instanceRdd.join(vertexRdd).map{case(s, ((p, o), sId)) => (o, (p, sId))}
-        val edges = edgeSubjIds.join(vertexRdd).map{case(o, ((p, sId), oId)) => (sId, p, oId)}
-        println("Joins")
-        edges.collect.foreach(println)
-
-        val vertexMap = vertexRdd.collectAsMap
-        val edges1 = instanceRdd.map{case (s, (p, o)) => (vertexMap(s), vertexMap(o), p)}
-        println("Maps")
-        edges1.collect.foreach(println)
-
-    }
-
-
-    def createEdgeRdd(sc: SparkContext, vertexRdd: RDD[(String, Long)], edgeRdd: RDD[(String, String, String)]): RDD[(Long, Long, String)] = {
-        val vPartitions = vertexRdd.partitions
-        var edges: RDD[((String, Long), (String, Long), String)] = edgeRdd.map{case(s, p, o) => ((s, -1L), (o, -1L), p)}
-        var edgeRddArray = new Array[RDD[((String, Long), (String, Long), String)]](vPartitions.size)
-        //var bcArray = new Array(org.apache.spark.broadcast.Broadcast[scala.collection.immutable.Map[String, Long]])(vPartitions.size)
-        var i = 0
-        for(p <- vPartitions) {
-            val start = System.nanoTime()    
-            val idx = p.index
-            println(idx)
-            val partRdd = vertexRdd.mapPartitionsWithIndex((index: Int, it: Iterator[(String, Long)]) => {
-                if(index == idx)
-                    it
-                else
-                    Iterator()
-            })
-            val vertexMap = partRdd.collectAsMap
-            //bcArray(i) = sc.broadcast(vertexMap)
-            if(i == 0) {
-                edgeRddArray(i) = edges.map{case((s, sId), (o, oId), p) => {
-                    ((s, if(sId == -1L) vertexMap.getOrElse(s, -1L) else sId),
-                    (o, if(oId == -1L) vertexMap.getOrElse(o, -1L) else oId),
-                    p)
-                }}    
-            }
-            else {
-                edgeRddArray(i) = edgeRddArray(i-1).map{case((s, sId), (o, oId), p) => {
-                    ((s, if(sId == -1L) vertexMap.getOrElse(s, -1L) else sId),
-                    (o, if(oId == -1L) vertexMap.getOrElse(o, -1L) else oId),
-                    p)
-                }}   
-            }
-
-            // if(i == vPartitions.size/2) {
-            //     edgeRddArray(i).count
-            //     bcArray.foreach(bc => {
-            //         bc.unpersist()
-            //         bc.destroy()
-            //     })
-            // }
-            
-            i+=1
-            val end = System.nanoTime()    
-            println(Duration((end - start), NANOSECONDS).toMillis)
-        }
-         edgeRddArray(i-1).map{case((s, sId), (o, oId), p) => (sId, oId, p)}
-    }
 
     def validTriple(s: String, p: String, o: String): Boolean = {
         !p.contains("wikiPageWikiLink")
@@ -350,7 +182,7 @@ object Preprocessor {
         return (s, p, o)
     }
 
-    def computeCC(instanceGraph: Graph[(String, Seq[String], Seq[(String, String)]), String]) = {       
+    def computeCC(instanceGraph: Graph[(String, Seq[String], Seq[(String, String)]), String],dataset: String, hdfs: String) = {       
         val classRDD = instanceGraph.triplets
                                     .filter(triplet => (!triplet.srcAttr._2.isEmpty && 
                                                         !triplet.dstAttr._2.isEmpty)) //contain class
@@ -369,17 +201,17 @@ object Preprocessor {
         
         combinedClassRDD.map{case(classes, instances) => 
                                 (classes, instances.size, instances.map(_._2).distinct.size)}
-                         .saveAsTextFile(Constants.HDFS + Constants.schemaCC)   
+                         .saveAsTextFile(hdfs + dataset + Constants.schemaCC)   
     }
 
-    def computeNodeImportance(sc: SparkContext, schemaGraph: Graph[String, (String, Double)]) = {
-        val nodeFreq: Map[String, Int] = Loader.loadSchemaNodeFreq()
+    def computeNodeImportance(sc: SparkContext, schemaGraph: Graph[String, (String, Double)], dataset: String) = {
+        val nodeFreq: Map[String, Int] = Loader.loadSchemaNodeFreq(dataset)
         val brNodeFreq = sc.broadcast(nodeFreq)
 
         val schemaFreq:Map[String, Int] = schemaGraph.vertices
                                                         .map(v => (v._2, brNodeFreq.value.getOrElse(v._2, 0)))
                                                         .collectAsMap  
-    	val bcMap: Map[String, Double] = Loader.loadBC()
+    	val bcMap: Map[String, Double] = Loader.loadBC(dataset)
 
     	val bcMax = bcMap.valuesIterator.max
     	val bcMin = bcMap.valuesIterator.min
@@ -394,7 +226,7 @@ object Preprocessor {
         }}
         
         val schemaMap = schemaGraph.vertices.map(x => (x._2, x._1)).collectAsMap
-        val pw = new PrintWriter(new File(Constants.schemaImportance))
+        val pw = new PrintWriter(new File(dataset + Constants.schemaImportance))
         ListMap(importance.toSeq.sortWith(_._2 > _._2):_*).foreach{case(uri, impValue) => {
            //if condition for dbpedia dataset
             if(Constants.schemaImportance.contains("dbpedia")){
@@ -410,7 +242,7 @@ object Preprocessor {
         pw.close
     }
 
-    def computeSchemaNodeFreq(instanceGraph: Graph[(String, Seq[String], Seq[(String, String)]), String]) = {
+    def computeSchemaNodeFreq(instanceGraph: Graph[(String, Seq[String], Seq[(String, String)]), String], dataset: String) = {
         val schemaNodeFreq = instanceGraph.triplets.filter(triplet => (!triplet.srcAttr._2.isEmpty || 
                                                                             !triplet.dstAttr._2.isEmpty))
                                             .flatMap(triplet => Seq(triplet.srcAttr, triplet.dstAttr))
@@ -419,35 +251,35 @@ object Preprocessor {
                                             .flatMap(triplet => (triplet._2))
                                             .map(c => (c, 1))
                                             .reduceByKey(_+_)
-        val pw = new PrintWriter(new File(Constants.schemaNodeFrequency))
+        val pw = new PrintWriter(new File(dataset + Constants.schemaNodeFrequency))
         schemaNodeFreq.sortBy(_._2, false).collect.foreach{case (uri, freq) => {
             pw.write(uri + "\t" + freq + "\n")
         }}
         pw.close
     }
 
-    def computeSchemaNodeCount(instanceGraph: Graph[(String, Seq[String], Seq[(String, String)]), String]) = {
+    def computeSchemaNodeCount(instanceGraph: Graph[(String, Seq[String], Seq[(String, String)]), String], dataset: String) = {
         val schemaNodeFreq = instanceGraph.triplets.filter(triplet => (!triplet.srcAttr._2.isEmpty || 
                                                                             !triplet.dstAttr._2.isEmpty))
                                             .flatMap(triplet => triplet.srcAttr._2  ++ triplet.dstAttr._2)
                                             .map(c => (c, 1))
                                             .reduceByKey(_+_)
-        val pw = new PrintWriter(new File(Constants.schemaNodeCount))
+        val pw = new PrintWriter(new File(dataset + Constants.schemaNodeCount))
         schemaNodeFreq.sortBy(_._2, false).collect.foreach{case (uri, freq) => {
             pw.write(uri + "\t" + freq + "\n")
         }}
         pw.close
     }
 
-    def saveWeightedGraph(vertices: RDD[(Long, String)], edges: EdgeRDD[(String, Double)], k: Int) = {
-        vertices.saveAsTextFile(Constants.HDFS + Constants.weightedVertices + "_" + k)
-        edges.map(e => (e.srcId, e.dstId, e.attr)).saveAsTextFile(Constants.HDFS + Constants.weightedEdges + "_" + k)
+    def saveWeightedGraph(vertices: RDD[(Long, String)], edges: EdgeRDD[(String, Double)], k: Int, dataset: String, hdfs: String) = {
+        vertices.saveAsTextFile(hdfs + dataset + Constants.weightedVertices + "_" + k)
+        edges.map(e => (e.srcId, e.dstId, e.attr)).saveAsTextFile(hdfs + dataset + Constants.weightedEdges + "_" + k)
     }
 
     
-    def saveShortestPathVertices(rdd: RDD[(Long, scala.collection.immutable.Map[VertexId, Tuple2[Double, Seq[Tuple3[Long, Long, String]]]])], k: Int) = {
+    def saveShortestPathVertices(rdd: RDD[(Long, scala.collection.immutable.Map[VertexId, Tuple2[Double, Seq[Tuple3[Long, Long, String]]]])], k: Int, dataset: String, hdfs: String) = {
         val temp = rdd.map{case(id, m) => Types.ShortestPath(id, m)}
-        KryoFile.saveAsObjectFile(temp, Constants.HDFS + Constants.shortestPaths + "_" + k)
+        KryoFile.saveAsObjectFile(temp, hdfs + dataset + Constants.shortestPaths + "_" + k)
     }
     /**
     * Produce all possible combinations of subject and object types.
@@ -467,13 +299,13 @@ object Preprocessor {
               (triple(0).drop(1).dropRight(1), (triple(1).drop(1).dropRight(1), triple(2).drop(1).dropRight(1)))
     }
 
-  	def computeHuaBC(graph: Graph[String, (String, Double)]) = {
+  	def computeHuaBC(graph: Graph[String, (String, Double)], dataset: String) = {
       	val verticeMap = graph.vertices.collectAsMap
   		val bcMap = org.ics.isl.betweenness.HuaBC.computeBC(graph)
           				  .sortBy(_._2, false)
           				  .map(x => (x._1, verticeMap(x._1), x._2))
           				  .collect
-        val pw = new PrintWriter(new File(Constants.huaBCFile))
+        val pw = new PrintWriter(new File(dataset + Constants.huaBCFile))
         bcMap.foreach{case(id, uri, bcValue) => {
             pw.write(id + "\t" + uri + "\t" + bcValue + "\n")
         }}
@@ -482,14 +314,14 @@ object Preprocessor {
 
     def normalizeValue(value: Double, min: Double, max: Double) = (value - min) / (max - min)
 	
-	def computeEdmondsBC(graph: Graph[String, (String, Double)], k: Int) = {
+	def computeEdmondsBC(graph: Graph[String, (String, Double)], k: Int, dataset: String) = {
 		val verticeMap = graph.vertices.collectAsMap
 		val bcMap = org.ics.isl.betweenness.EdmondsBC.computeBC(graph)
     					.sortBy(_._2, false)
     					.map(x => (x._1, verticeMap(x._1), x._2))
                         .collect
 
-        val pw = new PrintWriter(new File(Constants.edmondsBCFile + "_" + k))
+        val pw = new PrintWriter(new File(dataset + Constants.edmondsBCFile + "_" + k))
         bcMap.foreach{case(id, uri, bcValue) => {
             pw.write(id + "\t" + uri + "\t" + bcValue + "\n")
         }}

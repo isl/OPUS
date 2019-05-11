@@ -94,7 +94,7 @@
                 <configuration>
                     <source>1.6</source>
                     <target>1.6</target>
-                    <mainClass>org.ics.isl.partitioner.LAP</mainClass>
+                    <mainClass>org.ics.isl.LAP</mainClass>
                 </configuration>
             </plugin>
       
@@ -131,7 +131,7 @@
                         <manifest>
                             <classpathPrefix>lib/</classpathPrefix>
                             <addClasspath>true</addClasspath>
-                            <mainClass>org.ics.isl.partitioner.LAP</mainClass>
+                            <mainClass>org.ics.isl.LAP</mainClass>
                         </manifest>
                     </archive>
                 </configuration>

@@ -21,7 +21,7 @@ object QueryParser {
         variables = extractSelectVariables()
         triplePatterns = extractTriplePatterns().zipWithIndex.map(x => (x._2, x._1))
         
-        val mappingResult = extractQueryMappings2()
+        val mappingResult = extractQueryMappings()
         isIndexedQuery = mappingResult._2
         queryMappings = mappingResult._1
 	}
@@ -52,17 +52,24 @@ object QueryParser {
                                         .mkString
                                         .drop(1)
                                         .dropRight(1)
-        //extract triple patterns from query
-        var triplePatterns = triplePatternStr.split(" \\.")
-                                                .filter(!_.startsWith("#"))
-                                                .map(x => cleanTp(x.trim.split("\\s+").map(_.trim)))
-                                                .map(x => {
-                                                        if(x(1) == "a" || x(1) == "rdf:type")
-                                                            (x(0), Constants.RDF_TYPE, x(2))
-                                                        else
-                                                            (x(0), x(1), x(2))
-                                                        })
-        triplePatterns
+        
+        if(triplePatternStr.isEmpty){
+            isIndexedQuery = false
+            return Array()
+        }
+        else{
+            //extract triple patterns from query
+            var triplePatterns = triplePatternStr.split(" \\.")
+                                                    .filter(!_.startsWith("#"))
+                                                    .map(x => cleanTp(x.trim.split("\\s+").map(_.trim)))
+                                                    .map(x => {
+                                                            if(x(1) == "a" || x(1) == "rdf:type")
+                                                                (x(0), Constants.RDF_TYPE, x(2))
+                                                            else
+                                                                (x(0), x(1), x(2))
+                                                            })
+            return triplePatterns
+        }
 	}
 
     /**
@@ -70,7 +77,7 @@ object QueryParser {
     * Maps each tripple patten to a uri
     * Triple patterns that contain uri and queries that have an rdf:type
     */
-    def extractQueryMappings2(): (Map[Int, String], Boolean) = {
+    def extractQueryMappings(): (Map[Int, String], Boolean) = {
         var tpMapping = Map[Int, String]()
         var rdfTypeMapping = Map[String, String]()
 
@@ -114,75 +121,6 @@ object QueryParser {
             return (tpMapping, false)
     }
 
-    // def extractQueryMappings(): (Map[Int, (String, String)], Boolean) = {
-    //     var tpMapping = Map[Int, (String, String)]()
-    //     var initialTpMapping = Map[Int, (String, String)]()
-
-    //     var initialVariableMapping = Map[String, String]()
-    //     var variableMapping = Map[String, String]()
-
-    //     triplePatterns.foreach{case(id, (s, p, o)) => {
-    //         if(!isVariable(s) && !isLiteral(s)) {
-    //             val (tpMap, varMap) = fillMaps(s, (s, p, o), id, initialTpMapping, initialVariableMapping, "subj")
-    //             initialTpMapping = tpMap
-    //             initialVariableMapping = varMap
-    //         }
-    //         if(!isVariable(o) && !isLiteral(o)) {
-    //             val (tpMap, varMap) = fillMaps(o, (s, p, o), id, initialTpMapping, initialVariableMapping, "obj")
-    //             initialTpMapping = tpMap
-    //             initialVariableMapping = varMap
-    //         }
-    //     }}
-        
-    //     triplePatterns.foreach{case(id, tp) => {
-    //         val tpVars = findTPVars(tp)
-    //         var varUri = ""
-    //         var tempVar = ""
-    //         tpVars.foreach(v => {
-    //             if(initialVariableMapping.contains(v)){
-    //                 tempVar = v
-    //                 varUri = initialVariableMapping(v)
-    //             }
-    //         })
-    //         if(varUri != "") {
-    //             if(!initialTpMapping.contains(id)){
-    //                 tpMapping = tpMapping + (id -> (varUri, findPosition(tp, tempVar)))
-    //             }
-    //         }            
-    //     }}
-
-    //     tpMapping = tpMapping ++ initialTpMapping
-       
-    //     if(arrayEquals(tpMapping.keys.toArray, triplePatterns.map(_._1)))
-    //         return (tpMapping, true)
-    //     else
-    //         return (tpMapping, false)
-    // }
-
-    def fillMaps(uri: String, tp: (String, String, String), id: Int, tpMapping: Map[Int, String], variableMapping: Map[String, String]) = {
-        var varMap = variableMapping
-        var tpMap = tpMapping
-        val tpVars = findTPVars(tp)
-        var flag = 0
-        tpVars.foreach(v => {
-            if(!varMap.contains(v)){
-                varMap = varMap + (removeNonAlphaNum(v) -> uri)
-                flag = 1
-            }
-        })
-        if(flag == 0)
-            tpMap = tpMap + (id -> varMap(tpVars(0)))
-        else
-            tpMap = tpMap + (id -> uri)
-        (tpMap, varMap)
-    }
-
-    def findPosition(tp: (String, String, String), variable: String): String = {
-        if(removeNonAlphaNum(tp._1) == variable)
-            return "subj"
-        else
-            return "obj"
-    }
     def isVariable(str: String): Boolean = str.contains("?")
 
     def isLiteral(str: String): Boolean = str.contains("\"")

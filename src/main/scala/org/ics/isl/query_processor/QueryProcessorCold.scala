@@ -15,94 +15,81 @@ import scala.collection.immutable.ListMap
  * Query Processor Direct using SQL
  *
  */
-object QueryProcessorDirect {
+object QueryProcessorCold {
     val spark = loadSparkSession()
+    
     var dataMap = Map[String, Dataset[Row]]()
     var partitionNum = -1
     var subPartitionType = ""
-    var subPartitionMode = ""
-    var firstRun = 0
     var bal = -1
-    var versionId = -1
+    var dataset = ""
+    var hdfs = ""
+
     def main(args: Array[String]): Unit = {
         import spark.implicits._
         
-        if(args.size != 6) {
-            println("Arguments: lood_id, number of partitions, sub partitioning mode, dataset name, bal, versionId")
+        if(args.size != 5) {
+            println("Arguments: number of partitions, query file ,dataset name, balance, hdfs base path")            
             System.exit(-1)
         }
+        val queryFile = new File(args(1))
+        dataset = args(2)
+        partitionNum = args(0).toInt
+        bal = args(3).toInt
+        hdfs = args(4)
         
-        val dataset = args(3)
-        val loopId = args(0)
-
-        partitionNum = args(1).toInt
-        subPartitionMode = args(2)
-        bal = args(4).toInt
-        versionId = args(5).toInt
-
         val sc = spark.sparkContext
-        val cleanHdfsFolder = HdfsUtils.removeDirInHDFS(dataset + "/result_" + subPartitionMode +"/")
-        var inputPath = if(bal == 1){
-            "/home/jagathan/test_queries/" + dataset + "/indexed/translated_queries_2" + subPartitionMode + "_" + partitionNum + "_bal/"
-        }else {
-            "/home/jagathan/test_queries/" + dataset + "/indexed/translated_queries_2" + subPartitionMode + "_" + partitionNum + "/"
-        }
+
         var resultPath = if(bal == 1){
-            "../results/" + dataset + "/partitioner_" + partitionNum + "_" + subPartitionMode + "_bal/indexed/"
-        }else {
-            "../results/" + dataset + "/partitioner_" + partitionNum + "_" + subPartitionMode + "/indexed/"
+            "results/" + dataset + "/cold_" + partitionNum + "_bal/"
+        }
+        else {
+            "results/" + dataset + "/cold_" + partitionNum + "/"
         }
         
         if(!new File(resultPath).exists){
+            val mkdirBase = "mkdir results" !
+            val mkdirDataset = "mkdir results/" + dataset ! 
             val cmd = "mkdir " + resultPath !
         }
-        val fileList = listFiles(new File(inputPath), true)
+        val queryPath = queryFile.getPath
+        val queryName = queryFile.getName
         
-        fileList.foreach(queryFile => {
-            val queryPath = queryFile.getPath
-            val queryName = queryFile.getName
-            
-            println(queryPath)
+        HdfsUtils.removeDirInHDFS(hdfs + dataset + "/result_cold/")
+        println(queryPath)          
 
-            //Parse query
-            val file = Source.fromFile(queryFile).getLines
+        //Parse query
+        val file = Source.fromFile(queryFile).getLines
 
-            var partitions = Array[String]()
-            var tpNum: Int = -1
-            var queryMap = Map[String, String] ()
-            for(line <- file) {
-                if(line.startsWith("TP")){
-                    tpNum = line.split(" ")(1).toInt
-                }
-                else if(line.startsWith("partitions")){
-                    partitions = line.split(" ")(1).split(",")
-                }
-                else if(!line.startsWith(">>>>>")) {
-                    val tokens = line.split(" ")
-                    val key = tokens(0)
-                    val query = tokens.drop(1).mkString(" ")
-                    queryMap = queryMap + (key -> query)
-                }
+        var partitions = Array[String]()
+        var tpNum: Int = -1
+        var queryMap = Array[(String, String)] ()
+        for(line <- file) {
+            if(line.startsWith("TP")){
+                tpNum = line.split(" ")(1).toInt
             }
-
-            val resultFile = if(bal == 1){
-                new File(resultPath + "results" + "_" + tpNum + "_" + loopId + "_" + "bal" + ".txt")
+            else if(line.startsWith("partitions")){
+                partitions = line.split(" ")(1).split(",")
             }
-            else {
-                new File(resultPath + "results" + "_" + tpNum + "_" + loopId + ".txt")   
+            else if(!line.startsWith(">>>>>")) {
+                val tokens = line.split(" ")
+                val key = tokens(0)//.split("_")(1) uncomment here and in func call for version 2
+                val query = tokens.drop(1).mkString(" ")
+                queryMap = queryMap :+ (key, query)
             }
-            val resultWriter = new FileWriter(resultFile, true) //appends
-                  
-            val (executionTime, result) = executeNonTypeQuery(queryMap, partitions, dataset, queryName)
+        }
 
-            resultWriter.append("Query: " + queryFile.getName + "\n")
-            resultWriter.append("Time: " + executionTime + "\n")
-            resultWriter.append("Result_count: " + result.count + "\n")
-            resultWriter.append("partitions: " + partitions.mkString(",") + "\n")
-            
-            resultWriter.close
-        })
+        val resultFile = new File(resultPath + "results" + "_" + tpNum + ".txt")
+        val resultWriter = new FileWriter(resultFile, true) //appends
+              
+        val (executionTime, result) = executeNonTypeQuery(queryMap.map(_._2)/*.sortBy(_._1).map(_._2)*/, partitions, dataset, queryName)
+
+        resultWriter.append("Query: " + queryFile.getName + "\n")
+        resultWriter.append("Time: " + executionTime + "\n")
+        resultWriter.append("Result_count: " + result.count + "\n")
+        resultWriter.append("partitions: " + partitions.mkString(",") + "\n")
         
+        resultWriter.close
         spark.stop()
     }
 
@@ -117,9 +104,8 @@ object QueryProcessorDirect {
                                 .config("spark.speculation", "true")
                                 .config("spark.sql.autoBroadcastJoinThreshold", "60817408") //200M 209715200 100M 104857600 50M 52428800
                                 .config("spark.sql.inMemoryColumnarStorage.batchSize", 100000)
-                                .config("spark.sql.crossJoin.enabled", "true")
-                                .config("spark.sql.parquet.filterPushdown", "true")
                                 .config("spark.sql.inMemoryColumnarStorage.compressed", true)
+                                .config("spark.sql.crossJoin.enabled", "true")
                                 .getOrCreate()
         import spark.implicits._
         val sc = spark.sparkContext  
@@ -130,31 +116,24 @@ object QueryProcessorDirect {
     /**
     * handles queries that do not have rdf:type
     */
-    def executeNonTypeQuery(queryMap: Map[String, String], partitions: Array[String], dataset: String, qName: String): (Long, Dataset[Row]) = {
+    def executeNonTypeQuery(queryMap: Array[String], partitions: Array[String], dataset: String, qName: String): (Long, Dataset[Row]) = {
         preloadTables(partitions)
-        if(firstRun == 0){
-            println("First Run")
-            val result = executeFinalQuery(queryMap)    
-            result.count       
-            firstRun = 1
-        }
         val result = executeFinalQuery(queryMap)
         var t1 = System.nanoTime()
-        result.count//.write.csv(Constants.HDFS + dataset + "/result_" + subPartitionMode +"/" + qName)
+        result.write.csv(hdfs + dataset + "/result_cold")
         var t2 = System.nanoTime()
         var duration = (t2 - t1) / 1000 / 1000
         (duration, result)
     }
 
-    def executeFinalQuery(queryMap: Map[String, String]): Dataset[Row] = {
+    def executeFinalQuery(queryMap: Array[String]): Dataset[Row] = {
         if(queryMap.size == 1){
-            val query = queryMap.values.toSeq(0)
+            val query = queryMap(0)
             spark.sql(query)
         }
         else {
-            queryMap.map(_._2).map(query => spark.sql(query)).reduceLeft((left, right) => (customJoin(left, right)))    
+            queryMap.map(query => spark.sql(query)).reduceLeft((left, right) => (customJoin(left, right)))    
         }
-        
     }
 
     def customJoin(left: Dataset[Row], right: Dataset[Row]): Dataset[Row] = {
@@ -175,7 +154,6 @@ object QueryProcessorDirect {
             val dataset = loadDataset(partition)
             val cleanName = "table" + partition.replace("-", "_").replace("=", "_E_").trim
             dataset.createOrReplaceTempView(cleanName)
-          //  dataset.count
         }}
     }
     
@@ -238,9 +216,6 @@ object QueryProcessorDirect {
         import spark.implicits._ 
         //load file pointed by index
         var input: String = ""
-        if(bal == 1) {
-            println("bal placement")
-        }
         // println(file)
         if(file.contains("-")) {
             val tokens = file.split("-")
@@ -253,23 +228,20 @@ object QueryProcessorDirect {
             }
             val subPartition = tokens(1)
             input = if(bal == -1) {
-                Constants.HDFS + Constants.clusters + "_" + subPartitionMode + "_" + partitionNum + "/" + partition + "/" + subPartition + "/*"
+                hdfs + dataset + Constants.clusters + "_" + partitionNum + "/" + partition + "/" + subPartition + "/*"
             }else {
-                Constants.HDFS + Constants.clusters + "_" + subPartitionMode + "_" + partitionNum + "_bal/" + partition + "/" + subPartition + "/*"                
+                hdfs + dataset  + Constants.clusters + "_" + partitionNum + "_bal/" + partition + "/" + subPartition + "/*"                
             }
-        }
-        else if(subPartitionMode == "baseline") {
-            input = Constants.HDFS + Constants.baseLine
         }
         else {
             input = if(bal == -1) {
-                Constants.HDFS + Constants.clusters + "_" + subPartitionMode + "_" + partitionNum + "/" + file + "/*"
+                hdfs + dataset + Constants.clusters + "_" + partitionNum + "/" + file + "/*"
             }else {
-                Constants.HDFS + Constants.clusters + "_" + subPartitionMode + "_" + partitionNum + "_bal/" + file + "/*"
+                hdfs + dataset + Constants.clusters + "_" + partitionNum + "_bal/" + file + "/*"
             }
         }
         
-        if(!dataMap.contains(file) && (subPartitionMode == "vp" || subPartitionMode == "baseline")){
+        if(!dataMap.contains(file)){
             val dataset = spark.read.load(input)
                                     .as[(String, String/*, String*/)]
                                     .withColumnRenamed("_1", "s")
@@ -287,7 +259,7 @@ object QueryProcessorDirect {
         }
         return dataMap(file)
     } 
- 
+
     /**
     * Returns list of files of the given folder
     */

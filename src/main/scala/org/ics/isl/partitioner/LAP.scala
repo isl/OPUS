@@ -15,16 +15,16 @@ import org.apache.spark.graphx.lib.ShortestPaths
 import scala.reflect.ClassTag
 import org.apache.hadoop.fs.FileSystem
 import org.apache.hadoop.fs.Path
+import sys.process._
 
 /**
  * SemanticPartitioner
  *
  */
 object LAP { 
-    var subPartitionType: String = ""
     var numOfPartitions: Int = -1
-    var subPartitionMode: String = ""
     var dataset: String = ""
+    var hdfs: String = ""
 
     def main(args: Array[String]): Unit = {
         val spark = SparkSession.builder
@@ -33,338 +33,70 @@ object LAP {
                                 .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
                                 .config("spark.kryoserializer.buffer.max", "1024m")
                                 .config("spark.driver.maxResultSize", "10G")
-                                .config("spark.hadoop.dfs.replication", "1") // add it only when saving final partitions. remove it after
+                                .config("spark.hadoop.dfs.replication", "1") 
                                 .getOrCreate()
         import spark.implicits._
         
         val sc = spark.sparkContext
-        sc.setCheckpointDir(Constants.HDFS + "checkPoint")
+        sc.setCheckpointDir(hdfs + "checkPoint")
         sc.setLogLevel("ERROR")
         if(args.size < 3){
             println("Missing Arguments")
-            println("Arguments: number of partitions, sub partitioning mode, dataset name")
+            println("Arguments: number of partitions, dataset name, hdfs base path, insances path, schema path")
             System.exit(-1)
         }
         
         numOfPartitions = args(0).toInt
-        subPartitionMode = args(1)
-        dataset = args(2)        
+        dataset = args(1)        
+        hdfs = args(2)
+        if(!hdfs.endsWith("/"))
+            hdfs = hdfs + "/"
 
-        Preprocessor.initializeGraphs(spark)
+        val instancePath = args(3)
+        val schemaPath = args(4)
 
-        val schemaGraph = Loader.loadSchemaGraph(spark).cache
+        val mkdir = "mkdir " + dataset + "_local"
+        val mkdirOut = mkdir ! 
+
+        Preprocessor.initializeGraphs(spark, dataset, hdfs, schemaPath, instancePath)
+
+        val schemaGraph = Loader.loadSchemaGraph(spark, dataset, hdfs).cache
         
-        val instanceGraph = if(dataset == "dbpedia"){
-                                Loader.loadInstanceGraph(spark)
+        val instanceGraph = Loader.loadInstanceGraph(spark, dataset, hdfs)
                                       .partitionBy(PartitionStrategy.EdgePartition2D, 1600)
-                            }
-                            else {
-                                Loader.loadInstanceGraph(spark)
-                                        .partitionBy(PartitionStrategy.EdgePartition2D, 1600)
-                                  //    .partitionBy(PartitionStrategy.EdgePartition2D, 400)
-                            }
 
-        Preprocessor.computeMeasures(sc, instanceGraph, schemaGraph)
+        Preprocessor.computeMeasures(sc, instanceGraph, schemaGraph, dataset, hdfs)
         
         val finalClusters = rdfCluster(spark, instanceGraph, schemaGraph, numOfPartitions)
-
-        val importanceMap = Loader.loadSchemaImportance() //load betweenness centrality
-        val schemaMap = schemaGraph.vertices.collectAsMap
-        val centroids = findCentroids(importanceMap, schemaMap, numOfPartitions)
-
   
-        if(!HdfsUtils.hdfsExists(Constants.clusters + "_" + subPartitionMode + "_" + numOfPartitions)) {
+        if(!HdfsUtils.hdfsExists(hdfs + dataset + Constants.clusters + "_" + numOfPartitions)) {
             partitionClusters(spark, finalClusters)
-            if(!HdfsUtils.hdfsExists(Constants.nodeIndexFile  + "_" + numOfPartitions)) {
+            if(!HdfsUtils.hdfsExists(hdfs + dataset + Constants.nodeIndexFile  + "_" + numOfPartitions)) {
                 generateNodeIndex(spark)
             }
-            subPartitionClusters(spark, subPartitionMode)
+            subPartitionClusters(spark)
         }
 
-        if(!new File(Constants.partitionStatFile + "_" + numOfPartitions + "_" + subPartitionMode).exists)
+        if(!new File(dataset + Constants.partitionStatFile + "_" + numOfPartitions).exists)
             computePartitionStatistics(spark)
 
-        // if(!new File(Constants.dataStatisticsFile  + "_" + numOfPartitions).exists)
-        //     computeDataStatistics(spark, numOfPartitions)
-
-        // if(!HdfsUtils.hdfsExists(Constants.baseLine))
-        //     createBaseline(spark, numOfPartitions)
-        
-        //createSparqlgxData(spark, dataset)
-        // computePredicateReduction(spark)
-        //validateIndexing(spark, instanceGraph)
-        //validatePartitions(spark)
         spark.stop()
     }    
+                 
 
-    def cleanDBPedia(spark: SparkSession) = {
-        val vMap = spark.sparkContext
-                        .textFile(Constants.instancePath)
-                        .filter(!_.startsWith("#"))
-                        .map(_.split("\\s+", 3))
-                        .filter(t => t(1).trim == Constants.RDF_TYPE &&  t(0).trim.length < 150 && t(0).trim.count(_ == '%') <= 1)
-                        .map(t => (t(0).trim, ""))
-           
-        val rdd = spark.sparkContext
-                        .textFile(Constants.instancePath)
-                        .filter(!_.startsWith("#"))
-                        .map(_.split("\\s+", 3))
-                        .map(t => (t(0).trim, t(1).trim, t(2).dropRight(2).trim))
-                        .cache
-
-        val labelRdd = rdd.filter(t => t._3.contains("\"") || t._2 == Constants.RDF_TYPE)
-                            .map{case(s, p, o) => (s, (p, o))}
-                            .join(vMap).map{case(s ,((p, o), d)) => (s, p, o)}
-                            .distinct
-                            .map(t => t._1 + "\t" + t._2 + "\t" + t._3 + " .") 
-
-        // println(labelRdd.count)
-
-        val subjRdd = rdd.filter(t => !t._3.contains("\"") && t._2 != Constants.RDF_TYPE)
-                            .map{case(s, p, o) => (s, (p, o))}
-                            .join(vMap).map{case(s, ((p, o), d)) => (s, p, o)}
-                            .distinct
-                            .map(t => t._1 + "\t" + t._2 + "\t" + t._3 + " .")     
-
-        val objRdd = rdd.map{case(s, p, o) => (o, (p, s))}
-                                .join(vMap).map{case(o, ((p, s), d)) => (s, p, o)}
-                                .distinct
-                                .map(t => t._1 + "\t" + t._2 + "\t" + t._3 + " .")     
-                    
-        val finalRdd = labelRdd.union(objRdd).union(subjRdd)
-        println(finalRdd.count)
-        finalRdd.repartition(1).saveAsTextFile(Constants.HDFS + "dbpedia/clean_instances/")
-    }
-
-    
-
-    def rePartitionClusters(spark: SparkSession) = {
-        import spark.implicits._
-        val basePath = "lubm-1000_data/cluster/clusters_vp_4/"
-        val partitions = HdfsUtils.getDirFilesNames(basePath)
+    def computePartitionStatistics(spark: SparkSession) = {
+        val basePath = hdfs + dataset + Constants.clusters + "_" + numOfPartitions + "/"
+        val baseUtilsPath = dataset + Constants.clusters + "_" + numOfPartitions + "/"
+        val sw = new PrintWriter(new File(dataset + Constants.partitionStatFile + "_" + numOfPartitions ))
+        val partitions = HdfsUtils.getDirFilesNames(baseUtilsPath)
 
         partitions.foreach(p => {
-            if(p.length == 5){
-                val path = basePath + p
-                val subPartitions = HdfsUtils.getDirFilesNames(path)
-                subPartitions.foreach(subPartition => {
-                    val subPath = path + "/" + subPartition
-                    val rPath = basePath + "r/" + p + "/" + subPartition
-                    println(subPath)
-                    val fileSize = HdfsUtils.getSize(subPath)
-                    if(fileSize > 64.0)
-                        println(fileSize)
-                    if(fileSize > 64.0) {
-                        val data = spark.read.load(Constants.HDFS + subPath).as[(String, String)].rdd
-                        val partitions = roundUp(data.partitions.size/3)
-                        if(partitions == 0){//10
-                            data.repartition(10).toDF().write.format("parquet").save(Constants.HDFS + rPath)    
-                        }
-                        else {
-                            data.repartition(10).toDF().write.format("parquet").save(Constants.HDFS + rPath)
-                        }
-                    }
-                    else if(fileSize > 10.0) {
-                        val data = spark.read.load(Constants.HDFS + subPath).as[(String, String)].rdd
-                        val partSize = 1
-                        val partitions = roundUp(data.partitions.size/5)
-                        if(partitions == 0){//5
-                            data.repartition(5).toDF().write.format("parquet").save(Constants.HDFS + rPath)    
-                        }
-                        else {
-                            data.repartition(5).toDF().write.format("parquet").save(Constants.HDFS + rPath)
-                        }
-                        
-                    }
-                    else if(fileSize > 5.0) {
-                        val data = spark.read.load(Constants.HDFS + subPath).as[(String, String)].rdd
-                        val partSize = 1
-                        val partitions = roundUp(data.partitions.size/5)
-                        if(partitions == 0){//5
-                            data.repartition(3).toDF().write.format("parquet").save(Constants.HDFS + rPath)    
-                        }
-                        else {
-                            data.repartition(3).toDF().write.format("parquet").save(Constants.HDFS + rPath)
-                        }
-                    }
-                    else {
-                        val data = spark.read.load(Constants.HDFS + subPath).as[(String, String)].rdd
-                        val partSize = 1
-                        val partitions = data.partitions.size //3
-                        data.repartition(1).toDF().write.format("parquet").save(Constants.HDFS + rPath)   
-                    }    
-                })
-            }
-            // HdfsUtils.removeDirInHDFS(path)
+            val fullPath = basePath + p //+"/*"
+            val cluster = spark.read.load(fullPath)
+            val c = cluster.count
+            sw.write(p + " " + c + "\n")              
         })
-
-        def roundUp(d: Double) = math.ceil(d).toInt      
-    }
-
-    def createSparqlgxData(spark: SparkSession, dataset: String) = {
-        Loader.loadBaseLine(spark).rdd.map(t => t._1 + "\t" + t._3 + "\t" + t._2 +" .")
-                /*.repartition(1)*/.saveAsTextFile(Constants.HDFS + "sparqlgx_" + dataset)
-    }
-
-    def validUri(str: String): Boolean = {str.startsWith("<") && str.endsWith(">")}
-
-    def validateIndexing(spark: SparkSession, instanceGraph: Graph[(String, Seq[String], Seq[(String, String)]), String]) = {
-        instanceGraph.vertices.filter(_._2._2.contains("http://www.w3.org/2002/07/owl#Ontology")).map(_._2._1).distinct
-                        .collect.foreach(println)
-        import spark.implicits._
-        println("Vertices out of indexes")
-        val indexedVertices = Loader.loadNodeIndex(spark, numOfPartitions).map(_.uri).rdd
-        val vertices = instanceGraph.vertices.map(_._2._1).filter(x => !x.contains("\"") && !x.startsWith("_:")) 
-        val sub = vertices.subtract(indexedVertices).distinct
-        println("count of vertices - non literal/blank nodes " + sub.count)
-
-        val untyped = instanceGraph.vertices
-                        .filter(x => x._2._2.isEmpty || 
-                                (!x._2._2.contains("http://www.w3.org/2002/07/owl#Thing") && x._2._2.size == 1) || 
-                                (!x._2._2.contains("http://xmlns.com/foaf/0.1/OnlineAccount") && x._2._2.size == 1))
-                        .map(_._2._1)
-                        .distinct
-        
-        println("count of vertices that has a type " + sub.subtract(untyped).count)
-        println("types of vertices that are not indexed")
-
-        sub.subtract(untyped).map(x => (x, 1))
-                                .join(instanceGraph.vertices.map(x => (x._2._1, x._2._2)))
-                                .flatMap(x => x._2._2)
-                                .distinct.collect.foreach(println)
-
-        println("not indexed vertices with type")
-        sub.subtract(untyped).collect.foreach(println)
-    }
-
-    /**
-    * Validates data between original file and partitioned triples
-    */
-    def validatePartitions(spark: SparkSession) = {
-        val rdd = spark.sparkContext.textFile(Constants.instancePath)
-                        .filter(!_.startsWith("#"))
-                        .map(_.split("\\s+", 3))
-                        .map(t => (t(0).trim, t(1).trim, t(2).dropRight(2).trim))
-                        .distinct//.cache
-
-        val clusters = Loader.loadClusters(spark, Constants.HDFS + Constants.clusters + "_" + subPartitionMode + "_" + numOfPartitions + "/*.parquet")
-                            .distinct.rdd.map{case(s, o, p) => (s, p, o)}
-//                            .cache
-
-        val leftout = rdd.subtract(clusters)
-
-        // println(clusters.count)
-        // println(rdd.count)
-        // val pw = new PrintWriter(new File("partitionLeftOut.txt"))
-    
-        // println("left out rdf types " + leftout.filter(_._3 == Constants.RDF_TYPE).count)
-        // leftout.collect.foreach{case(s, o, p) => {
-        // //     pw.write(s + "\t" + p + "\t" + o + " .\n")
-        // // }}
-        // // pw.close
-        clusters.subtract(rdd).collect.foreach(println)
-        // println("leftout triples " + clusters.subtract(rdd).count)
-    }
-
-    /**
-    * Validates data between original file and graph creation
-    */
-    def validateData(spark: SparkSession, instanceGraph: Graph[(String, Seq[String], Seq[(String, String)]), String]) = {
-        val rdd = spark.sparkContext.textFile(Constants.instancePath)
-                        .filter(!_.startsWith("#"))
-                        .map(_.split("\\s+", 3))
-                        .map(t => (t(0).trim, t(1).trim, t(2).dropRight(2).trim))
-                        .distinct
-
-        val cleanRdd = spark.sparkContext.textFile(Constants.HDFS + "dbpedia/clean_instances/part-00000")
-                        .filter(!_.startsWith("#"))
-                        .map(_.split("\\s+", 3))
-                        .map(t => (t(0).trim, t(1).trim, t(2).dropRight(2).trim))
-                        
-        
-        println(cleanRdd.subtract(rdd).count)
-        System.exit(-1)
-        val instanceTriples = instanceGraph.triplets.map{case(e) => (e.srcAttr._1, e.dstAttr._1, e.attr)}
-
-
-        println(rdd.subtract(instanceTriples).count)
-        println(instanceTriples.subtract(rdd).count)
-        println(instanceTriples.subtract(rdd).filter(_._2.contains("\"")).count)
-        println("\n\n")
-
-        val pw = new PrintWriter(new File("leftOutTriples.txt"))
-        val leftout = rdd.subtract(instanceTriples)
-        println("left out rdf types " + leftout.filter(_._3 == Constants.RDF_TYPE).count)
-        leftout.collect.foreach{case(s, o, p) => {
-            pw.write(s + "\t" + p + "\t" + o + " .\n")
-        }}
-        pw.close
-    }
-
-    class TestPartitioner(override val numPartitions: Int) extends Partitioner {
-        override def getPartition(key: Any): Int = {
-            val src = key.toString
-            return math.abs(src.hashCode) % numPartitions
-        }
-
-        override def equals(other: scala.Any): Boolean = {
-            other match {
-                case obj : TestPartitioner => obj.numPartitions == numPartitions
-                case _ => false
-            }
-        }
-    }
-    
-
-    def createSubPartitionMap(): Map[String, Int] = {
-        var subPartitionMap = Map[String, Int]()
-        val fileSuffix = generateFileSuffix(numOfPartitions)
-        fileSuffix.foreach(suffix => {
-            val exists = HdfsUtils.hdfsExists(Constants.clusters + "_" + subPartitionMode + "_" + numOfPartitions + "/" + suffix +"/01")
-            if(exists) {
-                val subPartitions = HdfsUtils.countSubFolders(Constants.clusters + "_" + subPartitionMode + "_" + numOfPartitions + "/" + suffix)
-                subPartitionMap = subPartitionMap + (suffix -> subPartitions)
-            }
-        })
-        return subPartitionMap
-    }
-
-    /**
-    * Reads multiple input files and save them in a single one.
-    * Splits uris by tab
-    */
-    def transformInstanceInputfiles(sc: SparkContext) = {
-        val rdd = sc.textFile(Constants.HDFS + "swdf/instances")
-                    .filter(!_.startsWith("#"))
-                    .map(t => t.split(" "))
-                    .map(t => {
-                        t(0) + "\t" + t(1) + "\t" + t.drop(2).mkString(" ")//.dropRight(2)
-                    })
-                    .repartition(1)
-        rdd.saveAsTextFile(Constants.HDFS + "tmp_swdf")
-    }
-
-    /**
-    * Saves all partitioned data in a single parquet file 
-    * Note: some data may not be included in baseline because 
-    * they do not belong to a class and so they are not partitioned.
-    */
-    def createBaseline(spark: SparkSession, k: Int) = {
-        import spark.implicits._
-        val path = Constants.HDFS + Constants.clusters + "_" + subPartitionMode + "_" + k + "/*.parquet"
-        val baseline = spark.read.load(path).as[(String, String, String)]
-        baseline.distinct.write.format("parquet").save(Constants.HDFS + Constants.baseLine)
-        println(baseline.distinct.count)
-    }               
-
-    /**
-    * reproduce triples with rdf:type for each instance
-    */
-    def generateTypeTriples(triple: EdgeTriplet[(String, Seq[String]),String]) = {
-        val triples = triple.srcAttr._2.map(t => (triple.srcAttr._1, t, Constants.RDF_TYPE)) ++ 
-                        triple.dstAttr._2.map(t => (triple.dstAttr._1, t, Constants.RDF_TYPE)) ++ 
-                        Seq((triple.srcAttr._1, triple.dstAttr._1, triple.attr))
-        triples
+        sw.close
     }
 
     /**
@@ -376,13 +108,13 @@ object LAP {
         finalClusters.map(x => (x._2, x._1))
                         .partitionBy(new CustomPartitioner(numOfPartitions))
                         .map(x => x._2)
-                        .toDF().write.format("parquet").save(Constants.HDFS + Constants.clusters + "_" + subPartitionMode + "_" + numOfPartitions)    
+                        .toDF().write.format("parquet").save(hdfs + dataset + Constants.clusters + "_" + numOfPartitions)    
 
         val stats = finalClusters.map(x => (x._2, 1))
                                     .reduceByKey(_+_)
                                     .collect
         
-        val sw = new PrintWriter(new File(Constants.statisticsFile + "_" + numOfPartitions))
+        val sw = new PrintWriter(new File(dataset + Constants.statisticsFile + "_" + numOfPartitions))
         stats.foreach{case(partition, size) => {
             if(partition.toString.size == 1)
                 sw.write("0"+partition.toString + " " + size + "\n")
@@ -391,43 +123,13 @@ object LAP {
         }}
         sw.close
     }
-    
-   
-    /**
-    * Computes which partitions need to split.
-    * Returns a map of partitionName, subPartitionSize
-    */
-    def computeSubPartitioning(spark: SparkSession, partitionNum: Int): Map[String, Int] = {
-        val statistics = Loader.loadStatistics(numOfPartitions)
-        val sum = statistics.map(_._2).reduce((a, b) => a + b)
-        val threshold = sum / partitionNum.toDouble
-        val partitions = generateFileSuffix(partitionNum)
-               
-        //initialize all partitions greater than threshold to split in 2
-        var partitionsToSplit = statistics.filter{case (partition, size) => (size >= threshold)}.map{case (partition, size) => (partition, 2)}
-        var flag = 1
-        while(flag == 1) {
-            flag = 0
-            partitionsToSplit.foreach{case(partition, subPartitions) => {
-                if(statistics(partition) / subPartitions > threshold) {
-                    partitionsToSplit = partitionsToSplit + (partition -> (subPartitions + 2))
-                    flag = 1
-                }
-            }}
-        }
-        statistics.filter{case (partition, size) => (size < threshold)}.foreach{case (partition, size) => {
-            partitionsToSplit = partitionsToSplit + (partition -> 0)
-        }}
 
-        partitionsToSplit.map{case(partition, size) => (fillStr(partition), size)}.toMap        
-    }
-
-    def subPartitionClusters(spark: SparkSession, mode: String) = {
+    def subPartitionClusters(spark: SparkSession) = {
         import spark.implicits._
         val sc = spark.sparkContext
     
-        val basePath = Constants.HDFS + Constants.clusters + "_" + subPartitionMode + "_" + numOfPartitions
-        val utilPath = Constants.clusters + "_" + subPartitionMode + "_" + numOfPartitions
+        val basePath = hdfs + dataset + Constants.clusters + "_" + numOfPartitions
+        val utilPath = dataset + Constants.clusters + "_" + numOfPartitions
         val partitions = HdfsUtils.getDirFilesNames(utilPath)
         partitions.foreach(p => {
             val fullPath = basePath + "/" + p
@@ -438,9 +140,9 @@ object LAP {
                                     .as[(String, String, String)]
             val start = p.indexOf("part-") + 5
             val partitionName = p.substring(start, start+5)
-            println(partitionName)
+
             val partSize = partition.rdd.partitions.size
-            println(partSize)
+            
             partition.rdd.repartition(roundUp(partSize/7.0))
                         .filter{case(s, o, p) => p.size < 150}
                         .toDF.as[(String, String, String)]
@@ -455,134 +157,14 @@ object LAP {
         uri.replaceAll("[^A-Za-z0-9]", "_").toLowerCase
     }
 
-    /**
-    * Repartition clusters by using the default spark partitioner, 
-    * such as semantic partitions will be splitted into more files.
-    */
-    def rePartitionClusters(spark: SparkSession, partitionsToSplit: Map[String, Int]) = {
-        import spark.implicits._
-        partitionsToSplit.foreach{case (partition, size) => {
-            val basePath = Constants.clusters + "_" + subPartitionMode + "_" + numOfPartitions + "/"
-            val partitionPath = basePath + partition
-            val files = HdfsUtils.getDirFilesNames(partitionPath)
-            files.foreach(file => {
-                val fileSize = HdfsUtils.getSize(partitionPath + "/" + file)
-                println(fileSize)
-                if(fileSize > 128.0){
-                    val ds = Loader.loadClustersWithId(spark, Constants.HDFS + partitionPath + "/" + file)
-                    val startIndex = file.indexOf("-")
-                    var cleanFileName = ""
-                    if(size == 0)
-                        cleanFileName = "00000"
-                    else   
-                        cleanFileName = file.substring(startIndex + 1, startIndex + 6)
-                    ds.write.format("parquet")
-                            .save(Constants.HDFS + partitionPath + "/" + cleanFileName)
-                    HdfsUtils.removeFilesInHDFS(partitionPath + "/" + file)
-                }
-                else {
-                    val startIndex = file.indexOf("-")
-                    var cleanFileName = ""
-                    if(size == 0)
-                        cleanFileName = "00000"
-                    else
-                        cleanFileName = file.substring(startIndex + 1, startIndex + 6)
-                    HdfsUtils.moveFile(partitionPath + "/" + file, partitionPath + "/" + cleanFileName)
-                }
-            })
-        }}
-       
-    }
 
-    /**
-    * Helper function that search for dependence around a node.
-    * **Debugging**
-    */
-    def nodeDependence(spark: SparkSession,  schemaGraph: Graph[String, (String, Double)], result: RDD[(VertexId, scala.collection.immutable.Map[VertexId,(Double, Seq[(VertexId, VertexId, String)])])]) = {
-        val sc = spark.sparkContext
-        val schemaVertices = schemaGraph.vertices.collectAsMap
-        val id = schemaVertices.filter(_._2 =="http://dbpedia.org/ontology/Settlement").keys.toArray
-        println("id " + id(0))
-        val ids = schemaGraph.triplets
-                                .filter(t => t.srcAttr == "http://dbpedia.org/ontology/Settlement")//&& clusterIds.contains(t.dstAttr))
-                                .distinct
-                                .map(t => t.dstId)
-                                .take(10)
-        
-        val importanceMap = Loader.loadSchemaImportance() //load betweenness centrality
-
-        val diffs = result.filter(node => !node._2.isEmpty)
-                            .flatMap(node => dependenceDiff(importanceMap, node._2))
-
-        val maxDiff = diffs.max
-        val minDiff = diffs.min
-
-        val dependenceVertices = result.filter(node => !node._2.isEmpty)
-                                        .map(node => (node._1, dependence(importanceMap, node._2, maxDiff, minDiff)))
-
-        ids.map(schemaVertices(_)).foreach(println)
-
-        println("Person neighboors")
-        dependenceVertices.filter(v => ids.contains(v._1))
-                            .map{case(cId, m) => 
-                                    (schemaVertices.get(cId).get, 
-                                        m.map{case(k, v) => 
-                                            (schemaVertices.get(k).get, 
-                                                (v._1, v._2.map(triple => (schemaVertices.get(triple._1).get, schemaVertices.get(triple._2).get, triple._3)))
-                                            )
-                                        }
-                                    )
-                                }
-                            .collect
-                            .foreach(println)
-    }
-
-    def computePartitionStatistics(spark: SparkSession) = {
-        val basePath = Constants.HDFS + Constants.clusters + "_" + subPartitionMode + "_" + numOfPartitions + "/"
-        val baseUtilsPath = Constants.clusters + "_" + subPartitionMode + "_" + numOfPartitions + "/"
-        val sw = new PrintWriter(new File(Constants.partitionStatFile + "_" + numOfPartitions + "_" + subPartitionMode))
-        val partitions = HdfsUtils.getDirFilesNames(baseUtilsPath)
-
-        partitions.foreach(p => {
-            val fullPath = basePath + p //+"/*"
-            val cluster = spark.read.load(fullPath)
-            val c = cluster.count
-            sw.write(p + " " + c + "\n")              
-        })
-        sw.close
-    }
-
-    /**
-    *  Writes in a file statistics about partitioning.
-    */
-    def computeDataStatistics(spark: SparkSession, k: Int) = {
-        val basePath = Constants.HDFS + Constants.clusters + "_" + subPartitionMode + "_" + numOfPartitions + "/"
-        val baseUtilsPath = Constants.clusters + "_" + subPartitionMode + "_" + numOfPartitions + "/"
-        val sw = new PrintWriter(new File(Constants.dataStatisticsFile  + "_" + numOfPartitions + "_" + subPartitionMode))
-        val partitions = HdfsUtils.getDirFilesNames(baseUtilsPath)
-
-        partitions.foreach(p => {
-            val fullPath = basePath + p //+"/*"
-            val cluster = spark.read.load(fullPath)
-            val c = cluster.count
-            sw.write(p + " " + c + "\n")              
-        })
-        val clusteredData = spark.read.load(basePath + "/*.parquet").cache
-        val dCount = clusteredData.distinct.count
-        val count = clusteredData.count
-        sw.write("Partitioned distinct triples: " + dCount + "\n")
-        sw.write("Partitioned total triples: " + count + "\n")
-        sw.write("Replication: " + count/dCount.toFloat + "\n")
-        sw.close
-        clusteredData.unpersist()
-    }
 
     /**
     * Creates index of class - partition
     */
     def createClassIndex(schemaClusters: RDD[(Long, (String, String, String))], centroids: Seq[Long], emptyCentroids: Array[(Long, String)]) = {
         val centroidMap = centroids.zipWithIndex.toMap
-        val mapWriter = new PrintWriter(new File(Constants.centroidMapFile + "_" + numOfPartitions))
+        val mapWriter = new PrintWriter(new File(dataset + Constants.centroidMapFile + "_" + numOfPartitions))
         
         centroidMap.foreach{case(cId, id) => {
             mapWriter.write(cId + "," + id + "\n")
@@ -595,7 +177,7 @@ object LAP {
                                         .reduceByKey(_++_)  //index empty centroids
                                         .collect.toArray ++ emptyCentroids.map{case(id, uri) => (uri, Array(centroidMap(id)))}
 
-        val pw = new PrintWriter(new File(Constants.classIndexFile + "_" + numOfPartitions))
+        val pw = new PrintWriter(new File(dataset + Constants.classIndexFile + "_" + numOfPartitions))
         var i = 0
         while(i < classIndex.length) {
             pw.write(classIndex(i)._1 + "\t" + classIndex(i)._2.distinct.mkString(",") + "\n")
@@ -604,60 +186,13 @@ object LAP {
         pw.close
     }
 
-    /**
-    * SubPartitions clases based on class index and sub partition map
-    */
-    def indexSubPartitions(subPartitionMap: Map[String, Int]) = {
-        val classIndex = Loader.loadClassIndex(numOfPartitions).map{case(c, partitions) => (c, partitions.map(fillStr(_)))}
-        var partitionClasses = Array[(String, String)]()
-        classIndex.foreach{case(c, partitions) => {
-            partitions.foreach(p => partitionClasses = partitionClasses :+ (p, c))
-        }}
-        val partitionArray: Array[(String, Array[String])] = partitionClasses.groupBy(_._1).map(tuple => (tuple._1, tuple._2.map(_._2))).toArray
         
-        partitionClasses = Array[(String, String)]()
-        partitionArray.foreach{case(p, classes) => {
-            val splitSize = subPartitionMap(p)
-            val chunkSize = classes.size / splitSize.toDouble
-            var curSubPartition = 0
-            var count = 0
-            if(splitSize == 0) {
-                partitionClasses = partitionClasses ++ classes.map(c => (c, p))
-            }
-            else {
-                partitionClasses = partitionClasses ++ classes.map{c => {
-                    if(count < chunkSize){
-                        count+=1
-                        (c, p + "-" + fillStr(curSubPartition.toString))
-                    }
-                    else {
-                        count = 1
-                        curSubPartition+=1
-                        (c, p + "-" + fillStr(curSubPartition.toString))
-                    }
-                }}
-            }          
-        }}
-        val finalClassIndex = partitionClasses.groupBy(_._1).map(tuple => (tuple._1, tuple._2.map(_._2)))
-        
-        finalClassIndex.foreach{case(c, partitions) => if(!QueryParser.arrayEquals(classIndex(c), partitions.map(_.split("-")(0)))) println("Error in index creation")}
-
-        val pw = new PrintWriter(new File(Constants.finalClassIndexFile + "_" + numOfPartitions + "_" + subPartitionMode))
-        finalClassIndex.foreach{case(c, partitions) => {
-            pw.write(c + "\t" + partitions.distinct.mkString(",") + "\n")
-        }}
-        pw.close
-    }
-
-
-    def fillStr(str: String) = {List.fill(5-str.length)("0").mkString + str}
-    
     /**
     * Builds an index of node to class
     */
     def generateNodeIndex(spark: SparkSession) = {
         import spark.implicits._
-        val fullPath = Constants.HDFS + Constants.clusters + "_" + subPartitionMode + "_" + numOfPartitions + "/"
+        val fullPath = hdfs + dataset + Constants.clusters + "_"+ numOfPartitions + "/"
         val cluster = Loader.loadClusters(spark, fullPath).distinct
         val nodeIndex = cluster.rdd.filter{case(s, o, p) => p == Constants.RDF_TYPE}
                                     .map{case(s, o, p) => {
@@ -665,66 +200,7 @@ object LAP {
                                     }}
         
         val nodeIndexDf = nodeIndex.map(node => Types.NodeIndex(node._1, node._2)).toDF()
-        nodeIndexDf.write.format("parquet").save(Constants.HDFS + Constants.nodeIndexFile + "_" + numOfPartitions)
-        
-        // val pw = new PrintWriter(new File(Constants.nodeIndexFileLocal + "_" + numOfPartitions))
-        
-        // nodeIndex.collect.foreach{case(node, t) => {
-        //     pw.write(node + "\t" + t + "\n")
-        // }}
-        // pw.close
-    }
-
-    
-    /**
-    * given a list of partitions, frequency_of_node and statistics on partitions
-    * finds the smallest partition
-    * **Probably not in use**
-    */
-    def findSmallestPartition(partitions: Seq[(String, Int)], statistics: Seq[(String, Int)]): Seq[String] = {
-        val maxOccPartition = partitions.maxBy(_._2)
-        val statisticMap = statistics.toMap
-        var maxOccPartitionStat = statisticMap(maxOccPartition._1)
-        var returnValue = Seq(maxOccPartition._1)
-        partitions.filter{case(partition, size) => size == maxOccPartition._2}
-                    .foreach{case(partition, size) => {
-                        val curPartitionStat = statisticMap(partition)
-                        if(curPartitionStat < maxOccPartitionStat){
-                            maxOccPartitionStat = curPartitionStat
-                            returnValue = Seq(partition)
-                        }
-
-                    }}
-        returnValue
-    }
-
-    /**
-    * generates file sufixes for the given partition number.
-    * used for parsing files in HDFS
-    */    
-    def generateFileSuffix(k: Int): Seq[String] = {
-        var fileSuffix = Seq[String]()
-        var i = k
-        for(i <- k - 1 to 0 by -1){
-            val kStr = i.toString
-            if(kStr.size < 2)
-                fileSuffix = fileSuffix :+ ("0" + kStr)
-            else
-                fileSuffix =  fileSuffix :+ kStr
-        }
-        fileSuffix
-    }
-
-    class ClassPartitioner(override val numPartitions: Int) extends Partitioner {
-        override def getPartition(key: Any): Int = {
-            return math.abs(key.toString.hashCode) % numPartitions
-        }
-        override def equals(other: scala.Any): Boolean = {
-            other match {
-                case obj : ClassPartitioner => obj.numPartitions == numPartitions
-                case _ => false
-            }
-        }
+        nodeIndexDf.write.format("parquet").save(hdfs + dataset +Constants.nodeIndexFile + "_" + numOfPartitions)
     }
 
     /**
@@ -742,111 +218,13 @@ object LAP {
         }
     }
 
-    /**
-    * Horizontal partitioner based on hash of the given key. (subj OR obj)
-    */
-    class HorizontalPartitioner(override val numPartitions: Int) extends Partitioner {
-        override def getPartition(key: Any): Int = {
-            //modification of hash result to avoid negatives
-            return math.abs(key.toString.hashCode) % numPartitions
-        }
-
-        override def equals(other: scala.Any): Boolean = {
-            other match {
-                case obj : HorizontalPartitioner => obj.numPartitions == numPartitions
-                case _ => false
-            }
-        }
-    }
-
-    //compute hash of String
-    def hashValue(str: String): Int = {
-        var hash = 7
-        for( i <- 0 to str.length()-1){
-            hash = hash*31 + str.charAt(i)
-        }
-        hash
-    }
-
     def roundUp(d: Double) = math.ceil(d).toInt
-
-    /**
-    * Create index for nodes and subclasses
-    * **Probably no use of this function**
-    */
-    def findSubClassRelationships(schemaGraph: Graph[String, (String, Double)]): Array[Array[Long]] = {
-        val subClassTriples = schemaGraph.triplets
-                                            .filter(t => t.attr._1 == "http://www.w3.org/2000/01/rdf-schema#subClassOf")
-                                            .cache
-        
-        val subClassEdges =  subClassTriples.map(t => Edge(t.srcId, t.dstId, t.attr._1))
-    
-        val subClassVertices = subClassTriples.flatMap(t => Seq((t.srcId, t.srcAttr), (t.dstId, t.dstAttr)))
-        subClassTriples.unpersist()
-
-        val subClassGraph = Graph(subClassVertices, subClassEdges)
-
-        val landMarks = subClassVertices.map(_._1).collect
-
-        val sp = ShortestPaths.run(subClassGraph, landMarks)
-
-        val vertexMap = subClassGraph.vertices.collectAsMap
-
-        sp.vertices.filter(v => v._2.size > 1)
-                    .map(v => v._2.keys.toArray)        
-                    .collect
-    }
-    // def partitionInstances(sc: SparkContext, instanceGraph: Graph[(String, Seq[String], Seq[(String, String)]), String]): RDD[((String, String, String), String)] = {
-    //     val classIndex = Loader.loadClassIndex(numOfPartitions)
-    //     val brIndex = sc.broadcast(classIndex)
-    //     //map each vertex classes to its ids
-    //     val pGraph = instanceGraph.triplets.flatMap(t => populateTriples(t.srcAttr, t.dstAttr, t.attr))
-    //                                         .distinct
-    //                                         .map{case(triple, p) => (brIndex.value(p).map(p => (triple, p)))}
-    //                                         .flatMap(triples => triples)
-    //                                         .distinct
-    //     pGraph
-        
-    // }   
-
-    // def populateTriples(srcAttr: (String, Seq[String], Seq[(String, String)]), 
-    //                     dstAttr: (String, Seq[String], Seq[(String, String)]), 
-    //                     attr: String): Seq[((String, String, String), String)] = {
-    //     val srcUri = srcAttr._1
-    //     val srcTypes = srcAttr._2//.map(getUriLastPart(_))
-    //     val srcLabels = srcAttr._3
-        
-    //     val dstUri = dstAttr._1
-    //     val dstTypes = dstAttr._2//.map(getUriLastPart(_))
-    //     val dstLabels = dstAttr._3
-
-    //     val pTriple = (srcTypes ++ dstTypes).map(t => ((srcUri, dstUri, attr), t))
-    //     val pSrcLabels = if(!srcLabels.isEmpty){
-    //         srcLabels.map{case(p, o) => (srcUri, o, p)}
-    //                     .map(t => (srcTypes.map(srcType => (t, srcType))))
-    //                     .reduce((a, b) => a++b)
-    //     } else {
-    //         Seq()
-    //     }
-        
-    //     val pDstLabels = if(!dstLabels.isEmpty){
-    //         dstLabels.map{case(p, o) => (dstUri, o, p)}
-    //                     .map(t => (dstTypes.map(srcType => (t, srcType))))
-    //                     .reduce((a, b) => a++b)
-    //     } else {
-    //         Seq()
-    //     }
-
-    //     val pSrcTypes = srcTypes.map(srcType => ((srcUri, srcType, Constants.RDF_TYPE), srcType))
-    //     val pDstTypes = dstTypes.map(dstType => ((dstUri, dstType, Constants.RDF_TYPE), dstType))
-
-    //     (pTriple ++  pSrcLabels ++ pDstLabels ++ pSrcTypes ++ pDstTypes).distinct
-    // }
+   
     
     def partitionInstances(sc: SparkContext, instanceGraph: Graph[(String, Seq[String], Seq[(String, String)]), String]): RDD[((String, String, String), String)] = {
-        val classIndex = Loader.loadClassIndex(numOfPartitions)
-        val centroidMap = Loader.loadCentroiMap(numOfPartitions)//.map(x => (x._2, x._1))
-        val schemaCluster = Loader.loadSchemaCluster(sc, numOfPartitions).map{case(t, cId) => (t, centroidMap(cId).toString)}
+        val classIndex = Loader.loadClassIndex(numOfPartitions, dataset)
+        val centroidMap = Loader.loadCentroiMap(numOfPartitions, dataset)//.map(x => (x._2, x._1))
+        val schemaCluster = Loader.loadSchemaCluster(sc, numOfPartitions, dataset, hdfs).map{case(t, cId) => (t, centroidMap(cId).toString)}
         
         val brIndex = sc.broadcast(classIndex)
         val brMap = sc.broadcast(centroidMap)
@@ -898,7 +276,7 @@ object LAP {
         val sc = spark.sparkContext
         
         //Partitioning of schema graph
-        if(!HdfsUtils.hdfsExists(Constants.schemaClusterFile + "_" + k))
+        if(!HdfsUtils.hdfsExists(hdfs + dataset + Constants.schemaClusterFile + "_" + k))
             clusterSchema(spark, schemaGraph, k)
         
         partitionInstances(sc, instanceGraph)
@@ -910,16 +288,16 @@ object LAP {
     */
     def clusterSchema(spark: SparkSession, schemaGraph: Graph[String, (String, Double)], k: Int) = {
         val sc = spark.sparkContext
-        val importanceMap = Loader.loadSchemaImportance() //load betweenness centrality
+        val importanceMap = Loader.loadSchemaImportance(dataset) //load betweenness centrality
         var weightedSchema: Graph[String, (String, Double)] = null
-        if(!HdfsUtils.hdfsExists(Constants.weightedVertices + "_" + k) && !HdfsUtils.hdfsExists(Constants.weightedEdges + "_" + k)) {
+        if(!HdfsUtils.hdfsExists(hdfs + dataset + Constants.weightedVertices + "_" + k) && !HdfsUtils.hdfsExists(hdfs + dataset + Constants.weightedEdges + "_" + k)) {
             weightedSchema = createWeightedGraph(spark, schemaGraph, importanceMap, k)
             val weightedVertices = weightedSchema.vertices
             val weightedEdges = weightedSchema.edges
           //  Preprocessor.saveWeightedGraph(weightedVertices, weightedEdges, k)
         }
         else {
-            weightedSchema = Loader.loadWeightedGraph(sc, k)
+            weightedSchema = Loader.loadWeightedGraph(sc, numOfPartitions, dataset, hdfs)
         }
 
         val schemaVertices = schemaGraph.vertices.collectAsMap
@@ -928,7 +306,7 @@ object LAP {
         weightedSchema.edges.repartition(50).cache
         weightedSchema.vertices.repartition(6).cache
 
-        val result = if(!HdfsUtils.hdfsExists(Constants.shortestPaths + "_" + k)) {
+        val result = if(!HdfsUtils.hdfsExists(hdfs + dataset + Constants.shortestPaths + "_" + k)) {
             // weithted shortest paths for every node to every centroid
             val shortestPaths = WeightedShortestPath.run(weightedSchema, nonCentroids)
                                                 .vertices
@@ -939,10 +317,10 @@ object LAP {
                             .reduceByKey(_++_)
         }
         else {
-            Loader.loadShortestPaths(sc, k)            
+            Loader.loadShortestPaths(sc, k, dataset, hdfs)            
         }
 
-        // if(!HdfsUtils.hdfsExists(Constants.shortestPaths + "_" + k))                
+        // if(!HdfsUtils.hdfsExists(hdfs + Constants.shortestPaths + "_" + k))                
         //     Preprocessor.saveShortestPathVertices(result, k)
         
         //Array with schema edges
@@ -996,15 +374,8 @@ object LAP {
                                     .distinct
 
         val finalSchemaCluster = extendedSchemaCluster.union(extendedCentroids).distinct
-        finalSchemaCluster.saveAsTextFile(Constants.HDFS + Constants.schemaClusterFile + "_" + k)
+        finalSchemaCluster.saveAsTextFile(hdfs + dataset + Constants.schemaClusterFile + "_" + k)
         // createClassIndex(finalSchemaCluster.map(x => (x._2, x._1)), centroids, Array())
-    }
-
-    def flattenTriple(triple: Tuple3[String, String, String]): Seq[(String, (Tuple3[String, String, String], Int))] = {
-        if(triple._2.contains("\""))
-            Seq((triple._1, (triple, 1)))
-        else
-            Seq((triple._1, (triple, 1)), (triple._2, (triple, 2)))
     }
 
     /**
@@ -1040,7 +411,7 @@ object LAP {
     */
     def createWeightedGraph(spark: SparkSession, schemaGraph: Graph[String, (String, Double)], importanceMap: Map[Long, Double], k: Int) = {
         val sc = spark.sparkContext
-        val cc = Loader.loadCC(sc).map(x => ((x._1, x._2, x._3),(x._4, x._5))).collectAsMap //load cardinalities CONVERT TO MAP
+        val cc = Loader.loadCC(sc, dataset  , hdfs).map(x => ((x._1, x._2, x._3),(x._4, x._5))).collectAsMap //load cardinalities CONVERT TO MAP
         val c = schemaGraph.numVertices //number of schema vertices
         val bothDirectionalSchema = Graph(schemaGraph.vertices, schemaGraph.edges.union(schemaGraph.edges.reverse))
         val brCC = sc.broadcast(cc)

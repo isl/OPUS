@@ -15,43 +15,47 @@ import scala.collection.immutable.ListMap
  * Query Processor using SQL
  *
  */
-object QueryTranslatorVP2 {
+object QueryTranslator {
     val spark = loadSparkSession()   
     var partitionNum = -1
     var subPartitionType = ""
-    var subPartitionMode = ""
     var balance = -1
+    var hdfs: String = ""
+
     def main(args: Array[String]): Unit = {
         import spark.implicits._
         val sc = spark.sparkContext
-        val options = Array("indexed"/*, "no_indexed"*/)
-        if(args.size < 4){
+        if(args.size < 5){
             println("Missing Arguments")
-            println("Arguments: number of partitions, sub partitioning mode, dataset name, balance")
+            println("Arguments: number of partitions, dataset name, balance, hdfs base path, sparql query path")
             System.exit(-1)
         }
 
-        val dataset = args(2)
+        val dataset = args(1)
         partitionNum = args(0).toInt    
-        subPartitionMode = args(1)
-        balance = args(3).toInt
+        balance = args(2).toInt
+        hdfs = args(3)
 
-        var inputPath = "/home/jagathan/test_queries/" + dataset + "/indexed/sparql/"
+        if(!hdfs.endsWith("/"))
+            hdfs = hdfs + "/"
+
+
+        var inputPath = args(4) //"/home/jagathan/test_queries/" + dataset + "/indexed/sparql/"
         
-        val nodeIndex = Loader.loadNodeIndex(spark, partitionNum)
+        val nodeIndex = Loader.loadNodeIndex(spark, partitionNum, dataset, hdfs)
         
         val classIndex = if(balance == 1) {
-            Loader.loadClassIndexBal(partitionNum, subPartitionMode)
+            Loader.loadClassIndexBal(partitionNum, dataset)
         }
         else {
-            Loader.loadClassIndex(partitionNum)
+            Loader.loadClassIndex(partitionNum, dataset)
         }
         
         val statistics = if(balance == 1) {
-            Loader.loadPartitionStatsBal(partitionNum, subPartitionMode)
+            Loader.loadPartitionStatsBal(partitionNum, dataset)
         }
         else {
-            Loader.loadPartitionStats(partitionNum, subPartitionMode)   
+            Loader.loadPartitionStats(partitionNum, dataset)   
         }
 
         var j = 0       
@@ -62,67 +66,53 @@ object QueryTranslatorVP2 {
 
             val queryPath = queryFile.getPath
             val queryName = queryFile.getName
-            val slicedQueryPath = queryPath.replace(queryPath.slice(queryPath.lastIndexOf("/"), queryPath.length), "")
-            //subdir for number of triple patterns
-            val subDir = slicedQueryPath.substring(slicedQueryPath.lastIndexOf("/")+1, slicedQueryPath.length)
-            // println(subDir)
-           // if(subDir.contains("5")) {
-                //folder until /indexed
-                println(slicedQueryPath)
-                val rootFolder = slicedQueryPath.substring(0, slicedQueryPath.lastIndexOf("sparql"))
-                //create translated queries folder
-                val translateFolder = if(balance == 1) {
-                    rootFolder + "/" + "translated_queries_2" + subPartitionMode + "_" + partitionNum + "_bal"
-                }
-                else {
-                    rootFolder + "/" + "translated_queries_2" + subPartitionMode + "_" + partitionNum
-                }
-                
-                if(!new File(translateFolder).exists) {
-                    val mkdir = "mkdir " + translateFolder !
-                }
-                val fullPath = translateFolder + "/" + subDir + "/"
-                if(!new File(fullPath).exists) {
-                    val mkdir = "mkdir " + fullPath !
-                }
-                
-                //Parse query
-                QueryParser.parseQuery(queryFile)
-                
-                val variables = QueryParser.variables
-                val triplePatterns = QueryParser.triplePatterns
-                val queryMappings = QueryParser.queryMappings
+   
+            //create translated queries folder
+            val translateFolder = if(balance == 1) {
+                inputPath + "/" + "translated_queries" + "_" + partitionNum + "_bal"
+            }
+            else {
+                inputPath + "/" + "translated_queries" + "_" + partitionNum
+            }
+            
+            if(!new File(translateFolder).exists) {
+                val mkdir = "mkdir " + translateFolder !
+            }
+            val fullPath = translateFolder + "/"// + subDir + "/"
+            if(!new File(fullPath).exists) {
+                val mkdir = "mkdir " + fullPath !
+            }
+            
+            //Parse query
+            QueryParser.parseQuery(queryFile)
+            
+            val variables = QueryParser.variables
+            val triplePatterns = QueryParser.triplePatterns
+            val queryMappings = QueryParser.queryMappings
 
 
-                val queryIndex: Map[Int, String] = buildQueryIndex(queryMappings, triplePatterns, nodeIndex, classIndex, statistics)
-                println(queryPath)
-                if(QueryParser.isIndexedQuery && !queryIndex.contains(-1)) {
-                    val pw = new PrintWriter(new File(fullPath + queryName))
+            val queryIndex: Map[Int, String] = buildQueryIndex(queryMappings, triplePatterns, nodeIndex, classIndex, statistics)
+            println(queryPath)
+            if(QueryParser.isIndexedQuery && !queryIndex.contains(-1)) {
+                val pw = new PrintWriter(new File(fullPath + queryName))
 
-                    val aggrTps = aggregateTps(triplePatterns)
+                val aggrTps = aggregateTps(triplePatterns)
 
-                    val queryMap = translateTp(aggrTps, toMutable(triplePatterns.toMap), queryIndex)
-                    pw.write(">>>>> " + queryName + "\n")
-                    queryMap.foreach{case(k, v) => {
-                        pw.write(k + " " + v + "\n")
-                    }}
-                    val partitions = queryIndex.values.toArray.distinct.mkString(",")
-                    pw.write("partitions " + partitions + "\n")
-                    pw.write("TP " + triplePatterns.size)
-                    pw.close
+                val queryMap = translateTp(aggrTps, toMutable(triplePatterns.toMap), queryIndex)
+                pw.write(">>>>> " + queryName + "\n")
+                queryMap.foreach{case(k, v) => {
+                    pw.write(k + " " + v + "\n")
+                }}
+                val partitions = queryIndex.values.toArray.distinct.mkString(",")
+                pw.write("partitions " + partitions + "\n")
+                pw.write("TP " + triplePatterns.size)
+                pw.close
 
-                }
-                else {
-                    println("Query cannot be indexed")
-                    // val prevFolder = queryPath.substring(0, queryPath.indexOf("indexed"))
-                    // println("prevFolder " + prevFolder)
-                    // val noIndexPath = prevFolder + "no_indexed" + "/"
-                    // if(!new File(noIndexPath).exists){
-                    //     val cmd = "mkdir " + noIndexPath !
-                    // }
-                    // val cmd = "mv " + queryPath + " " + noIndexPath !
-                }
-          //  }
+            }
+            else {
+                println("Query cannot be indexed")
+
+            }
         })
         j+=1
   
@@ -261,8 +251,7 @@ object QueryTranslatorVP2 {
             ids.foreach{case(id) => {
                 val tp = triplePatterns(id)
                 val partition = "table" + queryIndex(id).replace("-", "_").replace("=", "_E_").trim
-                println(queryIndex(id))
-                println(partition)
+ 
                 val tableName = "tab" + id
                 val subQuery = translate(partition, tp) + " AS " + tableName
                 if(joinTables.contains(variable))
@@ -304,7 +293,6 @@ object QueryTranslatorVP2 {
         if(joinCondition.size > 7)
             finalQuery+= joinCondition
         
-        println(finalQuery)
         return queryMap + ("X" -> finalQuery)
     }
 
