@@ -15,11 +15,14 @@
 
 #### **balance:** 0 for lap partitioning 1 for BLAP
 
-## To run LAP use the script run_lap like this:
+## To partition data using LAP use the script run_lap like this:
 #### ./run_lap.sh num_partitions dataset_name hdfs_path instance_path schema_path
 
-## To run BLAP use the script run_blap like this:
+## To partition data using BLAP use the script run_blap like this:
 #### ./run_blap.sh num_partitions dataset_name hdfs_path instance_path schema_path
 
-## To run translator use the script run_translator like this:
+## To translate sparql queries use the script run_translator like this:
 #### ./run_translator.sh num_partitions dataset_name balance hdfs_path sparql_input_folder
+
+## To execute the translated queries use the script run_translator like this:
+#### ./run_query.sh num_partitions dataset_name balance hdfs_path translated_queries_folder
