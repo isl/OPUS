@@ -1,17 +1,19 @@
 # LAWA
-## **num_partitions:** the number of partitions that we want to split the dataset
 
-## **dataset_name:** a specific name for each dataset. (same name must be used in all procedures for a specific dataset)
+##Script Arguments
+### __num_partitions:__ the number of partitions that we want to split the dataset
 
-## **hdfs_path:** hdfs base folder path
+### **dataset_name:** a specific name for each dataset. (same name must be used in all procedures for a specific dataset)
 
-## **intance_path:** hdfs path of dataset instances (.nt)
+### **hdfs_path:** hdfs base folder path
 
-## **schema_path:** hdfs path of dataset schema (triples format)
+### **intance_path:** hdfs path of dataset instances (.nt)
 
-## **sparql_input_folder:** input folder of sparql queries
+### **schema_path:** hdfs path of dataset schema (triples format)
 
-## **balance:** 0 for lap partitioning 1 for BLAP
+### **sparql_input_folder:** input folder of sparql queries
+
+### **balance:** 0 for lap partitioning 1 for BLAP
 
 ## To run LAP use the script run_lap like this:
 ### ./run_lap.sh num_partitions dataset_name hdfs_path instance_path schema_path
