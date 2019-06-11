@@ -1,4 +1,9 @@
 # LAWA
+## How to get and compile LAWA
+#### git clone https://github.com/isl/LAWA.git
+#### Need to install maven to build LAWA. Then in the root folder where pom.xml is run:
+#### mvn package
+
 ## Scripts modification
 #### In every script modify all fields of spark submit (master, memory,path_to_jar etc.)
 
