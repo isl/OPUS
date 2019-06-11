@@ -1,0 +1,4 @@
+SELECT *
+WHERE {
+<http://data.semanticweb.org/person/oscar-pastor-lopez> <http://xmlns.com/foaf/0.1/lastName> ?value .
+}

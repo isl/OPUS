@@ -1,0 +1,4 @@
+SELECT *
+WHERE {
+<http://data.semanticweb.org/conference/lrec/2008/papers/215> <http://data.semanticweb.org/ns/swc/ontology#isPartOf> ?value .
+}

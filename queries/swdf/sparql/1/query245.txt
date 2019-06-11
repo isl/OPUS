@@ -1,0 +1,4 @@
+SELECT *
+WHERE {
+<http://data.semanticweb.org/person/p-tena> <http://xmlns.com/foaf/0.1/made> ?value .
+}

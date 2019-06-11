@@ -1,0 +1,5 @@
+SELECT *
+WHERE {
+<http://data.semanticweb.org/organization/microsoft-research> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> ?type .
+<http://data.semanticweb.org/organization/microsoft-research> <http://xmlns.com/foaf/0.1/member> ?val .
+}

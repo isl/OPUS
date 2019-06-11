@@ -1,0 +1,4 @@
+SELECT *
+WHERE {
+<http://data.semanticweb.org/person/dieter-fensel> <http://swrc.ontoware.org/ontology#affiliation> ?value .
+}

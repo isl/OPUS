@@ -1,0 +1,5 @@
+SELECT *
+WHERE {
+<http://data.semanticweb.org/organization/aritificial-intelligence-journal> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> ?type .
+<http://data.semanticweb.org/organization/aritificial-intelligence-journal> <http://data.semanticweb.org/ns/swc/ontology#holdsRole> ?val .
+}

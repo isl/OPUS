@@ -1,0 +1,4 @@
+SELECT *
+WHERE {
+<http://data.semanticweb.org/conference/eswc/2011/programme-committee-member> <http://data.semanticweb.org/ns/swc/ontology#heldBy> ?value .
+}

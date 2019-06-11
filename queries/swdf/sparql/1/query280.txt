@@ -1,0 +1,4 @@
+SELECT *
+WHERE {
+<http://wit.istc.cnr.it/eswc-stc/workshops-calendar.rdf#c6b56669-6aca-3258-a836-37c696ee50b3_104> <http://www.w3.org/2002/12/cal/icaltzd#dtstamp> ?value .
+}

@@ -1,0 +1,4 @@
+SELECT *
+WHERE {
+<http://data.semanticweb.org/conference/eswc/2006/paper/pazienza-stellato> <http://xmlns.com/foaf/0.1/maker> ?value .
+}

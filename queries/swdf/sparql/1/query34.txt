@@ -1,0 +1,4 @@
+SELECT *
+WHERE {
+<http://data.semanticweb.org/conference/www/2012/paper/955/talk/speaker> <http://data.semanticweb.org/ns/swc/ontology#isRoleAt> ?value .
+}

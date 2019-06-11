@@ -1,0 +1,4 @@
+SELECT *
+WHERE {
+<http://data.semanticweb.org/person/ann-chervenak> <http://data.semanticweb.org/ns/swc/ontology#holdsRole> ?value .
+}

@@ -1,0 +1,8 @@
+SELECT *
+WHERE {
+?x <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://swrc.ontoware.org/ontology#InProceedings> .
+?x <http://purl.org/dc/elements/1.1/title> ?title .
+?x <http://swrc.ontoware.org/ontology#abstract> ?abstract .
+?x <http://swrc.ontoware.org/ontology#year> ?year .
+?x <http://purl.org/dc/elements/1.1/creator> ?creator .
+}

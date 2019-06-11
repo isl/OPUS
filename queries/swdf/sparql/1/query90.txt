@@ -1,0 +1,4 @@
+SELECT *
+WHERE {
+<http://data.semanticweb.org/organization/stockholm-university> <http://www.w3.org/2002/07/owl#sameAs> ?value .
+}

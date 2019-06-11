@@ -1,0 +1,4 @@
+SELECT *
+WHERE {
+<http://data.semanticweb.org/conference/eswc/2006> <http://www.w3.org/2000/01/rdf-schema#seeAlso> ?value .
+}

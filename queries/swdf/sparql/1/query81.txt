@@ -1,0 +1,4 @@
+SELECT *
+WHERE {
+<http://data.semanticweb.org/conference/eswc/2012/paper/project-networking/366> <http://purl.org/dc/elements/1.1/creator> ?value .
+}

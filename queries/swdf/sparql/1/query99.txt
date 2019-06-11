@@ -1,0 +1,4 @@
+SELECT *
+WHERE {
+<http://www.eswc2006.org/topics/#topic2.4.4> <http://www.w3.org/2000/01/rdf-schema#label> ?value .
+}
