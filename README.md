@@ -1,8 +1,18 @@
 # LAWA
-## How to get and compile LAWA
+
+## How to get LAWA
 #### git clone https://github.com/isl/LAWA.git
-#### Need to install maven to build LAWA. Then in the root folder where pom.xml is run:
+
+## Compile LAWA
+#### First you need to install maven to build LAWA. Then in the root folder where pom.xml exists, run:
 #### mvn package
+#### A target folder should be created if everything builds correclty with the jar inside.
+
+## Run LAWA
+#### To run LAWA you first need to install Apache Spark (version 2+)
+#### To run each of the components of LAWA (partitioner, query translator, query executor) the appropriate script should be used.
+#### Inside of scripts/ the appropriate scripts can be found. For Partitioner LAP, BLAP (run_lap.sh, run_blap.sh) for query translator (run_translator.sh) and for query executor (run_query.sh).
+#### Each script should be modified accordingly with the steps bellow.
 
 ## Scripts modification
 #### In every script modify all fields of spark submit (master, memory,path_to_jar etc.)
