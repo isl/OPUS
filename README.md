@@ -1,16 +1,16 @@
-# LAWA
+# OPUS
 
-## How to get LAWA
-##### git clone https://github.com/isl/LAWA.git
+## How to get OPUS
+##### git clone https://github.com/isl/OPUS.git
 
-## Compile LAWA
-##### First you need to install maven to build LAWA. Then in the root folder where pom.xml exists, run:
+## Compile OPUS
+##### First you need to install maven to build OPUS. Then in the root folder where pom.xml exists, run:
 ##### mvn package
 ##### A target folder should be created if everything builds correclty with the jar inside.
 
-## Run LAWA
-##### To run LAWA you first need to install Apache Spark (version 2.2+) and Hadoop (version 2.7+). Also hdfs command (inside ob bin/ in hadoop) should be set as an environment variable(be visible as hdfs inside LAWA).
-##### To run each of the components of LAWA (partitioner, query translator, query executor) the appropriate script should be used.
+## Run OPUS
+##### To run OPUS you first need to install Apache Spark (version 2.2+) and Hadoop (version 2.7+). Also hdfs command (inside ob bin/ in hadoop) should be set as an environment variable(be visible as hdfs inside OPUS).
+##### To run each of the components of OPUS (partitioner, query translator, query executor) the appropriate script should be used.
 ##### Inside of scripts/ the appropriate scripts can be found. For Partitioner LAP, BLAP (run_lap.sh, run_blap.sh) for query translator (run_translator.sh) and for query executor (run_query.sh).
 ##### Each script should be modified accordingly with the steps bellow.
 
