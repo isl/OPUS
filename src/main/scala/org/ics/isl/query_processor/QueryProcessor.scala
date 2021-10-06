@@ -37,16 +37,14 @@ object QueryProcessor {
         
         dataset = args(0)
         hdfs = args(1)
-        //partitionNum = args(0).toInt
 
-      dataset match {
-        case "swdf" => partitionNum = 4
-        case "lubm"  => partitionNum = 8
-        case "lubm8"  => partitionNum = 12
-        case "dbpedia"  => partitionNum = 8
-        case _ => partitionNum = 4
-      }
-
+        dataset match {
+            case "swdf" => partitionNum = 4
+            case "lubm"  => partitionNum = 8
+            case "lubm8"  => partitionNum = 12
+            case "dbpedia"  => partitionNum = 8
+            case _ => partitionNum = 4
+        }
         
         if(!hdfs.endsWith("/"))
             hdfs = hdfs + "/"
