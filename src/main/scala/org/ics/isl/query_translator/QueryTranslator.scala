@@ -32,17 +32,15 @@ object QueryTranslator {
         }
 
         val dataset = args(0)
-        //partitionNum = args(0).toInt
-        //balance = args(2).toInt
         hdfs = args(1)
 
-      dataset match {
-        case "swdf" => partitionNum = 4
-        case "lubm"  => partitionNum = 8
-        case "lubm8"  => partitionNum = 12
-        case "dbpedia"  => partitionNum = 8
-        case _ => partitionNum = 4
-      }
+        dataset match {
+            case "swdf" => partitionNum = 4
+            case "lubm"  => partitionNum = 8
+            case "lubm8"  => partitionNum = 12
+            case "dbpedia"  => partitionNum = 8
+            case _ => partitionNum = 4
+        }
 
         if(!hdfs.endsWith("/"))
             hdfs = hdfs + "/"
