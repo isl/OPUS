@@ -1,0 +1,4 @@
+SELECT *
+WHERE {
+<http://data.semanticweb.org/person/lizhu-zhang> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> ?value .
+}

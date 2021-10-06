@@ -1,0 +1,4 @@
+SELECT *
+WHERE {
+<http://data.semanticweb.org/conference/iswc/2012/industry-proceedings/paper-03> <http://purl.org/ontology/bibo/authorList> ?value .
+}

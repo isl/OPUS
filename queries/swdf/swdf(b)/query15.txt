@@ -1,0 +1,4 @@
+SELECT *
+WHERE {
+<http://data.semanticweb.org/conference/iswc/2013/poster-demo-proceedings/paper-17> <http://purl.org/dc/terms/title> ?value .
+}

@@ -1,0 +1,4 @@
+SELECT *
+WHERE {
+<http://data.semanticweb.org/person/lyndon-j-b-nixon> <http://swrc.ontoware.org/ontology#affiliation> ?value .
+}

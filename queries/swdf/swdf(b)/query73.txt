@@ -1,0 +1,4 @@
+SELECT *
+WHERE {
+<http://data.semanticweb.org/conference/eswc/2014/paper/demo/97/authorlist> <http://www.w3.org/1999/02/22-rdf-syntax-ns#_1> ?value .
+}
