@@ -1,4 +1,0 @@
-SELECT *
-WHERE {
-<http://data.semanticweb.org/person/andrea-rodriguez> <http://xmlns.com/foaf/0.1/lastName> ?value .
-}

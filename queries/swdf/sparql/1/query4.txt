@@ -1,4 +1,0 @@
-SELECT *
-WHERE {
-<http://data.semanticweb.org/person/jose-mora> <http://www.w3.org/2000/01/rdf-schema#label> ?value .
-}

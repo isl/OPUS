@@ -1,4 +1,0 @@
-SELECT *
-WHERE {
-<http://data.semanticweb.org/conference/www/2008/paper/823> <http://swrc.ontoware.org/ontology#author> ?value .
-}

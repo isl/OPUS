@@ -1,4 +1,0 @@
-SELECT *
-WHERE {
-<http://dbpedia.org/resource/Ljubljana> <http://dbpedia.org/property/officialName> ?name .
-}

@@ -1,4 +1,0 @@
-SELECT *
-WHERE {
-<http://data.semanticweb.org/person/matthias-weidl> <http://swrc.ontoware.org/ontology#affiliation> ?value .
-}
