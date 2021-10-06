@@ -1,0 +1,3 @@
+SELECT  ?property ?value 
+WHERE 
+  { <http://data.semanticweb.org/conference/www/2011/poster/timestamp-based-cache-invalidation-for-search-engi/authors> ?property ?value } 

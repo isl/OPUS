@@ -1,0 +1,3 @@
+SELECT  ?o 
+WHERE 
+  { <http://data.semanticweb.org/organization/rice-university> <http://xmlns.com/foaf/0.1/name> ?o } 

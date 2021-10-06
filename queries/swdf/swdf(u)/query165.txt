@@ -1,0 +1,3 @@
+SELECT  ?property ?value 
+WHERE 
+  { <http://data.semanticweb.org/conference/eswc/2006/roles/paper-presenter-semantic-annotation-2-buitelaar> ?property ?value } 

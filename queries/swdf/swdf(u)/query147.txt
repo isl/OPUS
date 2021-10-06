@@ -1,0 +1,3 @@
+SELECT  ?property ?value 
+WHERE 
+  { <http://data.semanticweb.org/organization/athens-university-of-economics-and-business> ?property ?value } 
