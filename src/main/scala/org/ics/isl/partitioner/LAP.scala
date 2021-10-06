@@ -56,17 +56,16 @@ object LAP {
             System.exit(-1)
         }
         
-        //numOfPartitions = args(0).toInt
         dataset = args(0)
         hdfs = args(1)
 
-      dataset match {
-        case "swdf" => numOfPartitions = 4
-        case "lubm"  => numOfPartitions = 8
-        case "lubm8"  => numOfPartitions = 12
-        case "dbpedia"  => numOfPartitions = 8
-        case _ => numOfPartitions = 4
-      }
+        dataset match {
+            case "swdf" => numOfPartitions = 4
+            case "lubm"  => numOfPartitions = 8
+            case "lubm8"  => numOfPartitions = 12
+            case "dbpedia"  => numOfPartitions = 8
+            case _ => numOfPartitions = 4
+        }
 
         val instancePath = args(2)
         val schemaPath = args(3)
