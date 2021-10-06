@@ -1,0 +1,16 @@
+package org.ics.isl.betweenness
+
+import org.apache.spark.graphx.VertexId
+
+/**
+ * Created by mth on 5/6/17.
+ */
+trait NOMessage[MVT] extends Serializable {
+  def source: VertexId
+  def content: MVT
+
+  def isExpand = false
+  def isConfirm = false
+  def isDFSPointer = false
+  def isAggregation = false
+}
