@@ -1,0 +1,4 @@
+SELECT *
+WHERE {
+<http://data.semanticweb.org/person/benedicto-rodriguez> <http://xmlns.com/foaf/0.1/lastName> ?value .
+}

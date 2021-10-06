@@ -1,0 +1,4 @@
+SELECT *
+WHERE {
+<http://data.semanticweb.org/conference/eswc/2006/paper/debruijn-lausen> <http://data.semanticweb.org/ns/swc/ontology#relatedToEvent> ?value .
+}

@@ -1,0 +1,4 @@
+SELECT *
+WHERE {
+<http://data.semanticweb.org/organization/athens-university-of-economics-and-business> <http://xmlns.com/foaf/0.1/member> ?value .
+}
