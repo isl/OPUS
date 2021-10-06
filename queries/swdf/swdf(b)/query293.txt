@@ -1,0 +1,4 @@
+SELECT *
+WHERE {
+<http://data.semanticweb.org/conference/iswc-aswc/2007/tracks/research/session/research-11-ontology-design> <http://data.semanticweb.org/ns/swc/ontology#isSuperEventOf> ?value .
+}

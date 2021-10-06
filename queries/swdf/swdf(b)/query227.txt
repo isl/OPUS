@@ -1,0 +1,4 @@
+SELECT *
+WHERE {
+<http://data.semanticweb.org/conference/www/2012/demo/34> <http://swrc.ontoware.org/ontology#year> ?value .
+}

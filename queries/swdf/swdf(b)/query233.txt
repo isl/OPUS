@@ -1,0 +1,4 @@
+SELECT *
+WHERE {
+<http://data.semanticweb.org/person/john-chuang> <http://xmlns.com/foaf/0.1/mbox_sha1sum> ?value .
+}

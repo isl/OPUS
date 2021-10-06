@@ -1,0 +1,4 @@
+SELECT *
+WHERE {
+<http://data.semanticweb.org/conference/iswc/2013/proceedings-1> <http://xmlns.com/foaf/0.1/maker> ?value .
+}

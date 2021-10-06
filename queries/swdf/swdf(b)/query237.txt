@@ -1,0 +1,4 @@
+SELECT *
+WHERE {
+<http://data.semanticweb.org/conference/iswc-aswc/2007/tracks/posters-demos/talks/390> <http://www.w3.org/2000/01/rdf-schema#label> ?value .
+}
