@@ -1,0 +1,3 @@
+SELECT  ?property ?value 
+WHERE 
+  { <http://data.semanticweb.org/organization/ibm-research-usa> ?property ?value } 
