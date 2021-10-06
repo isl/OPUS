@@ -1,0 +1,4 @@
+SELECT *
+WHERE {
+<http://data.semanticweb.org/conference/www/2012/event/281> <http://www.w3.org/2002/12/cal/icaltzd#dtend> ?value .
+}

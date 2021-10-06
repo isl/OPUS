@@ -1,0 +1,4 @@
+SELECT *
+WHERE {
+<http://data.semanticweb.org/conference/iswc/2008/paper/research/251> <http://swrc.ontoware.org/ontology#author> ?value .
+}

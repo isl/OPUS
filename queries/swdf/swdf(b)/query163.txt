@@ -1,0 +1,4 @@
+SELECT *
+WHERE {
+<http://data.semanticweb.org/conference/www/2011/poster/timestamp-based-cache-invalidation-for-search-engi/authors> <http://www.w3.org/1999/02/22-rdf-syntax-ns#_4> ?value .
+}
