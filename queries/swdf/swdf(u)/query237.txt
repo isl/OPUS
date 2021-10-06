@@ -1,0 +1,3 @@
+SELECT  ?property ?value 
+WHERE 
+  { <http://data.semanticweb.org/conference/iswc-aswc/2007/tracks/posters-demos/talks/390> ?property ?value } 

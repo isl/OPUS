@@ -1,0 +1,3 @@
+SELECT  ?property ?value 
+WHERE 
+  { <http://data.semanticweb.org/conference/iswc-aswc/2007/tracks/research/session/research-11-ontology-design> ?property ?value } 

@@ -1,0 +1,3 @@
+SELECT  ?o ?p 
+WHERE 
+  { <http://data.semanticweb.org/organization/stanford-university> ?p ?o } 
