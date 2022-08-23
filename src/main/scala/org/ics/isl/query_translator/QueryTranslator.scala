@@ -25,32 +25,26 @@ object QueryTranslator {
     def main(args: Array[String]): Unit = {
         import spark.implicits._
         val sc = spark.sparkContext
-        if(args.size < 3){
-            println("Missing Arguments")
-            println("Arguments: dataset name, hdfs base path, sparql query path")
+        if(args.size != 4){
+            println("-->Missing Arguments")
+            println("-->Arguments: dataset name, number of partitions, hdfs base path, sparql query path")
             System.exit(-1)
         }
 
         val dataset = args(0)
-        hdfs = args(1)
-
-        dataset match {
-            case "swdf" => partitionNum = 4
-            case "lubm"  => partitionNum = 8
-            case "lubm8"  => partitionNum = 12
-            case "dbpedia"  => partitionNum = 8
-            case _ => partitionNum = 4
-        }
+        partitionNum = args(1).toInt
+        hdfs = args(2)
 
         if(!hdfs.endsWith("/"))
             hdfs = hdfs + "/"
 
-        var inputPath = args(2)
+        var inputPath = args(3)
 
-        val nodeIndex = Loader.loadNodeIndex(spark, partitionNum, dataset, hdfs)
-       println("Count nodeIndex:" + nodeIndex.count())
+       val nodeIndex = Loader.loadNodeIndex(spark, partitionNum, dataset, hdfs)
+       //!!println("Count nodeIndex:" + nodeIndex.count())
        var subPartIndex = Map[String, Dataset[Types.NodeSubPartIndex]]()
-       for( i <- 0 to partitionNum - 1) {
+      //todo: subPartIndex
+       /*for( i <- 0 to partitionNum - 1) {
           //if (i != 4 &&  i != 6 && i != 7 ) {
             if(i <10) {
               subPartIndex = subPartIndex + (("0000" + i.toString) -> Loader.loadSubPartIndex(spark, partitionNum, dataset, hdfs, "0000" + i.toString))
@@ -59,11 +53,9 @@ object QueryTranslator {
               subPartIndex = subPartIndex + (("0000" + i.toString) -> Loader.loadSubPartIndex(spark, partitionNum, dataset, hdfs, "000" + i.toString))
               //println(i + "subPartIndex Count:" + subPartIndex("000" + i.toString).count())
             }
-
-
           //}
-        }
-
+        }*/
+       //todo: end subPartIndex
         val classIndex = Loader.loadClassIndexBal(partitionNum, dataset)
         val statistics = Loader.loadPartitionStatsBal(partitionNum, dataset)
 
@@ -142,8 +134,10 @@ object QueryTranslator {
 
             if(c > 0){ //uri is class uri
                //take the smallest cluster
-                val partition = classIndex(uri).map(p => List.fill(5-p.length)("0").mkString + p).map(p => (p, statistics(p))).minBy(_._2)   //-- fill in list "0"+p= 00001  5-p.length times
-                //println(uri + "IS CLASS!!!")
+               val partition = classIndex(uri).map(p => List.fill(5-p.length)("0").mkString + p).map(p => (p, statistics(p))).minBy(_._2)   //-- fill in list "0"+p= 00001  5-p.length times
+
+              classIndex(uri).map(p => List.fill(5-p.length)("0").mkString + p).foreach(p =>println(p +": "+statistics(p)))
+              //println(uri + "IS CLASS!!!")
                 //clean partition name for storage format
                 val cleanPartName = List.fill(5-partition._1.length)("0").mkString + partition._1
                 (tpId, cleanPartName)
