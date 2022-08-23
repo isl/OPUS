@@ -11,7 +11,7 @@
 ## Run DIAERESIS
 ##### To run DIAERESIS you first need to install Apache Spark (version 2.2+) and Hadoop (version 2.7+). Also hdfs command (inside of bin/ in hadoop) should be set as an environment variable(be visible as hdfs inside DIAERESIS).
 ##### To run each of the components of DIAERESIS (partitioner, query translator, query executor) the appropriate script should be used.
-##### Inside of the folder scripts/ the appropriate scripts can be found. For Partitioner DAP (run_dap.sh), for query translator (run_translator.sh) and for query executor (run_query.sh).
+##### Inside of the folder scripts/ the appropriate scripts can be found. For partitioner DAP (run_dap.sh), for query translator (run_translator.sh) and for query executor (run_query.sh).
 ##### Each script should be modified accordingly with the steps bellow.
 
 ### Scripts modification
