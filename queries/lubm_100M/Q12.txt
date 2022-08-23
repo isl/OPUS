@@ -1,7 +1,0 @@
-SELECT ?X ?Y
-WHERE
-{?X <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://swat.cse.lehigh.edu/onto/univ-bench.owl#AssociateProfessor> .
-  ?Y <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://swat.cse.lehigh.edu/onto/univ-bench.owl#Department> .
-  ?X <http://swat.cse.lehigh.edu/onto/univ-bench.owl#worksFor> ?Y .
-  ?Y <http://swat.cse.lehigh.edu/onto/univ-bench.owl#subOrganizationOf> <http://www.University0.edu> .
-}
