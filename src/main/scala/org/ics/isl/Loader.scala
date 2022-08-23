@@ -23,6 +23,7 @@ object Loader {
 		val ePartNum = edges.partitions.size
 		val vPartNum = vertices.partitions.size
 
+
 		//edges.take(2).foreach{t => println("edges_load_2:    " + t.srcId + " " + t.attr + " " +t.dstId)}
 		//edges.filter(t=> t.srcId == 1243).collect().foreach{t => println("edges_load_34:    " + t.srcId + " " + t.attr + " " +t.dstId)}
 		//edges.filter(t=> t.srcId == 31513).collect().foreach{t => println("edges_load_35:    " + t.srcId + " " + t.attr + " " +t.dstId)}
@@ -180,6 +181,34 @@ object Loader {
 		return "error"
 	}
 
+	//local file of statistics of tables
+	def loadStatTables(partitionNum: Int, dataset: String): Map[String, Long] = {
+		var statistics = Map[String, Long]()
+		for (line <- Source.fromFile(dataset + Constants.statTableFile).getLines) {
+			val tokens: Array[String] = line.split(" ")
+			val partition: String = tokens(0)
+			val partitionSize: Long = tokens(1).toLong
+			statistics = statistics + (partition -> partitionSize)
+		}
+		statistics
+	}
+
+	//local file of statistics of tables
+	def loadStatisticsTables(partitioNnum: Int, dataset: String): Map[String, Double] = {
+    //  Implementation reading statistics from file
+    val inputMap:Map[String,Double] = scala.io.Source.fromFile(dataset + Constants.statTableFile).getLines.map {
+      l =>
+        l.split(' ') match {
+          case Array(k, v, _*) => "table" + k.replace("-", "_").replace("=", "_E_").trim -> v.toDouble
+          case _ => "-1.0" -> -1.0    //this is to get when there is an empty line that causes an exception otherwise
+        }
+    }.toMap.filter(x=> x._2 != -1.0 )   //Keep only the valid entries
+
+    inputMap
+  }
+
+
+
 	def loadStatistics(partitionNum: Int, dataset: String): Map[String, Int] = {
 		var statistics = Map[String, Int]()
 		for (line <- Source.fromFile(dataset + Constants.statisticsFile + "_" + partitionNum).getLines) {
@@ -228,11 +257,16 @@ object Loader {
 		statistics
 	}
 
+//file of statistics in hdfs
+	/*def loadStatisticsTablesspark: SparkSession, partitionNum: Int, dataset: String, hdfs: String, partitionName: String) = {
+		import spark.implicits._
+		spark.read.load(hdfs + dataset + Constants.nodeIndexFile + "_" + partitionNum).as[Types.NodeIndex] //? Types.NodeIndex should change
+	}*/
 
 	def loadNodeIndex(spark: SparkSession, partitionNum: Int, dataset: String, hdfs: String) = {
     	import spark.implicits._
         spark.read.load(hdfs + dataset + Constants.nodeIndexFile + "_" + partitionNum).as[Types.NodeIndex]
-    }
+	}
 
 	def loadSubPartIndex(spark: SparkSession, partitionNum: Int, dataset: String, hdfs: String, partitionName: String) = {
 		import spark.implicits._
@@ -281,10 +315,10 @@ object Loader {
 		}
 	}
 
-	def loadCC(sc: SparkContext, dataset: String, hdfs: String):RDD[(String, String, String, Int, Int)] = {
+	def loadCC(sc: SparkContext, dataset: String, hdfs: String):RDD[(String, String, String, Long, Long)] = {
     	sc.textFile(hdfs + dataset + Constants.schemaCC)
     					.map(x => schemaCCParse(x.split(",")))
-    					.map(x => (x(0).drop(2), x(1), x(2).dropRight(1), x(3).toInt, x(4).dropRight(1).toInt))
+    					.map(x => (x(0).drop(2), x(1), x(2).dropRight(1), x(3).toLong, x(4).dropRight(1).toLong))
     }
 
     def loadBC(dataset: String): Map[String, Double] = {
@@ -320,11 +354,12 @@ object Loader {
 		freqMap
     }
 
-    def loadSchemaNodeCount(dataset: String): Map[String, Int] = {
-    	var freqMap = Map[String, Int]()
+    def loadSchemaNodeCount(dataset: String): Map[String, Long] = {
+    	var freqMap = Map[String, Long]()
     	for (line <- Source.fromFile(dataset + Constants.schemaNodeCount).getLines) {
 			val tokens: Array[String] = line.split("\t")
-			freqMap = freqMap + (tokens(0) -> tokens(1).toInt)
+				//println(">> class_"+tokens(0) + " : " + tokens(1).toLong)
+        freqMap = freqMap + (tokens(0) -> tokens(1).toLong) //!! freqMap = freqMap + (tokens(0) -> tokens(1).toInt)
 		}
 		freqMap
     }

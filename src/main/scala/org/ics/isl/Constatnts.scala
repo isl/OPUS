@@ -17,6 +17,7 @@ object Constants {
     val schemaClusterFile = "_data/cluster/schema_cluster" 
     val clusters = "_data/cluster/clusters" 
     val nodeIndexFile = "_data/node_index"
+    //todo: hdfs val statisticsFile = "_data/node_index"
     val baseLine = "_data/baseline"
     val classSubPartIndexFile = "_data/classSubPart_index"
 
@@ -27,6 +28,7 @@ object Constants {
 
     val finalClassIndexFile = "_local/final_class_index.txt"
     val statisticsFile = "_local/statistics.txt"
+    val statTableFile = "_local/statTables.txt"
     val partitionStatFile = "_local/partition_stat.txt"
     val dataStatisticsFile = "_local/data_statistics.txt"
     val schemaNodeFrequency = "_local/schema_node_freq.txt"

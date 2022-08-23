@@ -1,15 +1,20 @@
  package org.ics.isl
 
 import org.apache.spark.graphx._
+
 import scala.concurrent.duration._
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
+
 import scala.io.Source
 import scala.util.Random
 import scala.collection.Map
 import scala.collection.immutable.ListMap
 import java.io._
+
+import org.apache.spark.sql.functions.countDistinct
+
 import sys.process._
 
 object Preprocessor {
@@ -22,7 +27,7 @@ object Preprocessor {
         createInstanceGraph(spark, dataset, hdfs, instancePath)
     }
 
-    def computeMeasures(sc: SparkContext, instanceGraph: Graph[(String, Seq[String], Seq[(String, String)]), String], schemaGraph: Graph[String, (String, Double)], dataset: String, hdfs: String) = {
+    def computeMeasures(spark: SparkSession, sc: SparkContext, instanceGraph: Graph[(String, Seq[String], Seq[(String, String)]), String], schemaGraph: Graph[String, (String, Double)], dataset: String, hdfs: String) = {
       val metaPath = dataset + Constants.huaBCFile.substring(0, Constants.huaBCFile.lastIndexOf("/"))
 
 
@@ -30,7 +35,7 @@ object Preprocessor {
             val mkdir = "mkdir " + metaPath !
         }
       if(!HdfsUtils.hdfsExists(hdfs + dataset + Constants.schemaCC))
-            computeCC(instanceGraph,dataset, hdfs)
+            computeCC(spark, instanceGraph,dataset, hdfs)
         if(!new File(dataset + Constants.huaBCFile).exists)    
             computeHuaBC(schemaGraph, dataset)
         if(!new File(dataset + Constants.schemaNodeFrequency).exists)        
@@ -114,7 +119,11 @@ object Preprocessor {
         val instanceRdd =  sc.textFile(instancePath)
                                 .filter(!_.startsWith("#"))
                                 .map(_.split("\\s+", 3))
-                                .map(t => (t(0).trim, t(1).trim, t(2).dropRight(2).trim))
+                                .map(t => (t(0).trim, t(1).trim, t(2).dropRight(2).trim)) //(s, p, o)
+
+
+        //SOS: DELETE
+        //instanceRdd.toDF.write.format("parquet").save(hdfs + dataset + "_data/instance_triples")
 
         //println("$$$$$$$$")
         //println(instanceRdd.first())
@@ -218,28 +227,40 @@ object Preprocessor {
         return (s, p, o)
     }
 
-    def computeCC(instanceGraph: Graph[(String, Seq[String], Seq[(String, String)]), String],dataset: String, hdfs: String) = {
+    def computeCC(spark: SparkSession, instanceGraph: Graph[(String, Seq[String], Seq[(String, String)]), String],dataset: String, hdfs: String) = {
+        import spark.implicits._
         val classRDD = instanceGraph.triplets
           .filter(triplet => (!triplet.srcAttr._2.isEmpty &&
                               !triplet.dstAttr._2.isEmpty)) //contain class
           .flatMap(triplet =>
-                    combineTripleTypes((triplet.srcAttr._2,
-                      triplet.attr,
-                      triplet.dstAttr._2,
-                      Seq((triplet.srcAttr._1, triplet.dstAttr._1))
-              ))
-          )
+              combineTripleTypes((triplet.srcAttr._2,
+                triplet.attr,
+                triplet.dstAttr._2,
+                triplet.srcAttr._1, triplet.dstAttr._1))
+              )
+          .filter{case((s, p, o, inst1, inst2)) => (!s.isEmpty && !p.isEmpty && !o.isEmpty)}
 
-        val combinedClassRDD = classRDD.filter{
-                                        case((s, p, o), ids) =>
-                                            (!s.isEmpty && !p.isEmpty && !o.isEmpty)
-                                        }.reduceByKey((a,b) => a ++ b)
+        val classDF = classRDD.toDF("subType", "pred", "objType", "inst1","inst2")
+        val classGroupBy = classDF.groupBy("subType", "pred", "objType")
+
+        val freq = classGroupBy.count()
+        //println("freq.count:"+freq.count())
+       // freq.printSchema()
+
+        val distinctFreq = classGroupBy.agg(countDistinct("inst2"))
+        val distinctFreqNew = distinctFreq.withColumnRenamed("count(inst2)", "dist")
+
+        //println("distinct:"+distinctNew.count())
+        //distinctFreq.printSchema()
+        val combinedClassDF = freq.join(distinctFreqNew, freq.col("subType") === distinctFreqNew.col("subType") &&  freq.col("pred") === distinctFreqNew.col("pred") &&  freq.col("objType") === distinctFreqNew.col("objType") )//.where(count("subType") === distinct("subType")  &&  count("pred") === distinct("pred") &&  count("objType") === distinct("objType"))
+       // println("combinedClassRDD join:"+combinedClassDF.count())
+        //combinedClassDF.printSchema()
+        //combinedClassDF.take(10).foreach(x => println("join: "+x.get(0) +" - " + x.get(1) +" - " + x.get(2) +" - " + x.getLong(3) +" - " + x.getLong(7)))
 
         //((<http://data.semanticweb.org/ns/swc/ontology#TutorialsChair>,<http://data.semanticweb.org/ns/swc/ontology#heldBy>,<http://xmlns.com/foaf/0.1/Person>),3,3)
-        combinedClassRDD.map{case(classes, instances) =>
-            (classes, instances.size, instances.map(_._2).distinct.size)}
-          //.repartition(1600) //troulin - LUBM10240
+        combinedClassDF.rdd.map{x =>( (x.getString(0), x.getString(1), x.getString(2)), x.getLong(3), x.getLong(7))}
           .saveAsTextFile(hdfs + dataset + Constants.schemaCC)
+
     }
 
 
@@ -308,7 +329,7 @@ object Preprocessor {
         val schemaNodeFreq = instanceGraph.triplets.filter(triplet => (!triplet.srcAttr._2.isEmpty || 
                                                                             !triplet.dstAttr._2.isEmpty))
                                             .flatMap(triplet => triplet.srcAttr._2  ++ triplet.dstAttr._2)
-                                            .map(c => (c, 1))
+                                            .map(c => (c, 1.toLong))
                                             .reduceByKey(_+_)
         val pw = new PrintWriter(new File(dataset + Constants.schemaNodeCount))
         schemaNodeFreq.sortBy(_._2, false).collect.foreach{case (uri, freq) => {
@@ -330,12 +351,18 @@ object Preprocessor {
     /**
     * Produce all possible combinations of subject and object types.
     */
-    def combineTripleTypes(tuple: (Seq[String], String, Seq[String], Seq[(String, String)])): Seq[((String, String, String), Seq[(String, String)])] = {
+
+    /*def combineTripleTypes(tuple: (Seq[String], String, Seq[String], Seq[(String, String)])): Seq[((String, String, String), Seq[(String, String)])] = {*/
+    def combineTripleTypes(tuple: (Seq[String], String, Seq[String], String, String)): Seq[(String, String, String, String, String)] = {
         //produce combinations of lists subjectType, objType
-        for {
+        /*for {
             subjectType <- tuple._1
             objType <- tuple._3
-        } yield((subjectType, tuple._2, objType), tuple._4)
+        } yield((subjectType, tuple._2, objType), tuple._4)*/
+        for {
+            subjectType <- tuple._1 //triplet.srcAttr._2: subjectType
+            objType <- tuple._3 //triplet.dstAttr._2: objType
+        } yield(subjectType, tuple._2, objType, tuple._4, tuple._5)
     }    
 
     def cleanTripleLubm(triple: Array[String]) = {

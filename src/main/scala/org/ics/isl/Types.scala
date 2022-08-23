@@ -15,9 +15,9 @@ object Types {
   case class NodeSubPartIndex(uri: String, parts: String)
  	case class ClassIndex(uri: String, clusters: Seq[String])
 
-    case class CardinalityInstances(triple: Tuple3[String, String, String], instanceList: Seq[Tuple2[VertexId, VertexId]])
-    case class CardinalityInstances2(triple: Tuple3[String, String, String], instanceList: Seq[Tuple2[String, String]])
-    case class CardinalityValues(triple: Tuple3[String, String, String], size: Int, distinctSize: Int)
-    case class ShortestPath(id: VertexId, map: Map[VertexId, Tuple2[Double, Seq[Tuple3[VertexId, VertexId, String]]]])
-    case class Betweenness(id: VertexId, uri: String, bcValue: Double)
+  case class CardinalityInstances(triple: Tuple3[String, String, String], instanceList: Seq[Tuple2[VertexId, VertexId]])
+  case class CardinalityInstances2(triple: Tuple3[String, String, String], instanceList: Seq[Tuple2[String, String]])
+  case class CardinalityValues(triple: Tuple3[String, String, String], size: Int, distinctSize: Int)
+  case class ShortestPath(id: VertexId, map: Map[VertexId, Tuple2[Double, Seq[Tuple3[VertexId, VertexId, String]]]])
+  case class Betweenness(id: VertexId, uri: String, bcValue: Double)
 }
