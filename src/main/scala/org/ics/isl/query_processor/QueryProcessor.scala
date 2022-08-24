@@ -137,8 +137,8 @@ object QueryProcessor {
         .config("spark.sql.parquet.filterPushdown", true)
         .config("spark.sql.inMemoryColumnarStorage.batchSize", "20000")
         .config("spark.sql.shuffle.partitions", "200")
-        //.config("spark.sql.cbo.enabled", true) // cost based optimizer
-        //.config("spark.sql.cbo.joinReorder.enabled", true) // cost based optimizer
+        .config("spark.sql.cbo.enabled", true) // cost based optimizer
+        .config("spark.sql.cbo.joinReorder.enabled", true) // cost based optimizer
         //.config("spark.sql.adaptive.enabled", true) //spark 3.0
         //.config("spark.sql.adaptive.skewJoin.enabled", true) //spark 3.0
         //.config("spark.sql.adaptive.localShuffleReader.enabled", true) //spark 3.0
