@@ -1,0 +1,6 @@
+SELECT * 
+WHERE { 
+?name <http://dbpedia.org/ontology/artist> <http://dbpedia.org/resource/The_Beatles> . 
+?name <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://dbpedia.org/ontology/Album> . 
+?name <http://dbpedia.org/ontology/releaseDate> ?date . 
+} 

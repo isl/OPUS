@@ -1,0 +1,4 @@
+SELECT * 
+WHERE { 
+?group <http://dbpedia.org/property/currentMembers> <http://dbpedia.org/resource/Fred_Durst> . 
+} 

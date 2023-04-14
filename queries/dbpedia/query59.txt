@@ -1,0 +1,4 @@
+SELECT * 
+WHERE { 
+<http://dbpedia.org/resource/Amsterdam> <http://dbpedia.org/property/populationTotal> ?inwoners . 
+} 
