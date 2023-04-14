@@ -1,0 +1,6 @@
+SELECT * 
+WHERE { 
+?a <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://dbpedia.org/ontology/Band> . 
+?b <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://dbpedia.org/ontology/Film> . 
+?b <http://dbpedia.org/ontology/musicComposer> ?a . 
+} 

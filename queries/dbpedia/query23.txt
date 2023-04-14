@@ -1,0 +1,4 @@
+SELECT * 
+WHERE { 
+<http://dbpedia.org/resource/Michael_Jackson> <http://xmlns.com/foaf/0.1/givenname> ?name_la . 
+} 
