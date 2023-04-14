@@ -1,4 +1,0 @@
-SELECT *
-WHERE {
-<http://dbpedia.org/resource/Loughborough> <http://dbpedia.org/property/shireCounty> ?shireCounty .
-}
