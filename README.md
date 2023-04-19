@@ -77,15 +77,10 @@ All queries used in our experimental evaluation exists in #[queries](https://git
 
 #### Individual Queries
 * [LUBM-100](https://github.com/isl/DIAERESIS/tree/master/queries/lubm100_1300_2300)
-
-* [LUBM-1300](https://github.com/isl/DIAERESIS/tree/master/queries/lubm100_1300_2300) 
-
+* [LUBM-1300](https://github.com/isl/DIAERESIS/tree/master/queries/lubm100_1300_2300)
 * [LUBM-2300](https://github.com/isl/DIAERESIS/tree/master/queries/lubm100_1300_2300)
-
 * [LUBM-10240](https://github.com/isl/DIAERESIS/tree/master/queries/lubm10240)
-
 * [SWDF](https://github.com/isl/DIAERESIS/tree/master/queries/swdf)
-
 * [DBpedia](https://github.com/isl/DIAERESIS/tree/master/queries/dbpedia)
 
 ## Contact
