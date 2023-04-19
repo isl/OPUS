@@ -42,7 +42,7 @@ Each script should be modified accordingly with the steps bellow. In every scrip
 
 * **schema_path:** hdfs path of dataset schema (triples format)
 
-* **parql_input_folder:** input folder of sparql queries
+* **sparql_input_folder:** input folder of sparql queries
 
 * **translated_queries_folder:** the folder with the result SQL queries translated from the input sparql queries
 
@@ -60,11 +60,16 @@ Each script should be modified accordingly with the steps bellow. In every scrip
 ```
 
 ## Dataset
-All datasets used in our experimental evaluation can be downloaded from the links.
+All the information about the datasets used in our experimental evaluation can be found below.
 
-* [LUBM-10240: ](http://swat.cse.lehigh.edu/projects/lubm/)
-   	* [Download Data Dump](https://www.dropbox.com/s/4ifouv5n5pa4vdk/10240_new_str.tar.gz?dl=0)
-
+We utilize the [LUBM](http://swat.cse.lehigh.edu/projects/lubm/) synthetic data generator (UBA1.7) to create the following datasets:
+	* **LUBM-100** with 100 universities
+	* **LUBM-1300:** with 1300 universities
+	* **LUBM-23000:** with 2300 universities
+	* **LUBM-10240:** with 10240 universities
+   		* [Download Data Dump of LUBM-10240](https://www.dropbox.com/s/4ifouv5n5pa4vdk/10240_new_str.tar.gz?dl=0)
+	* **SWDF** 
+	* **DBpedia**
 
 ## Benchmark Queries 
 All queries used in our experimental evaluation exists in #[queries](https://github.com/isl/DIAERESIS/tree/master/queries)# folder including the individual benchmark queries.
