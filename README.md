@@ -59,7 +59,7 @@ Each script should be modified accordingly with the steps bellow. In every scrip
 All datasets used in our experimental evaluation exists in #dataset# folder.
 
 ## Benchmark Queries 
-All queries used in our experimental evaluation exists in #queries# folder including the individual benchmark queries.
+All queries used in our experimental evaluation exists in #[queries](https://github.com/isl/DIAERESIS/tree/master/queries)# folder including the individual benchmark queries.
 
 #### Individual Queries
 * [LUBM 100](https://github.com/isl/DIAERESIS/tree/master/queries/lubm100_1300_2300)
