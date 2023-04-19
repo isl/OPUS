@@ -63,6 +63,7 @@ Each script should be modified accordingly with the steps bellow. In every scrip
 All the information about the datasets used in our experimental evaluation can be found below.
 
 We utilize the [LUBM](http://swat.cse.lehigh.edu/projects/lubm/) synthetic data generator (UBA1.7) to create the following datasets:
+
 	* **LUBM-100** with 100 universities
 	* **LUBM-1300:** with 1300 universities
 	* **LUBM-23000:** with 2300 universities
