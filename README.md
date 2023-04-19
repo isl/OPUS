@@ -1,5 +1,14 @@
 # DIAERESIS
-DIAERESIS is a novel platform that accepts as input an RDF dataset and effectively partitions it, minimizing data access and improving query answering efficiency.
+DIAERESIS is a novel platform that accepts as input an RDF dataset, effectively partitions it in order to evaluate SPARQL queries minimizing data access. 
+Specifically, the input RDF dataset is fed to the DIAERESIS Partitioner in order to partition it. 
+The Partitioner uses the Dependency Aware Partitioning (DAP) algorithm in order to construct the first-level partitions (stored in the HDFS)
+of data focusing on the structure of the RDF dataset and the dependence between the schema nodes. 
+In the sequel, based on this first-level partitioning, instances are assigned to the various partitions, 
+and the vertical partitions are created and stored in the HDFS. Along with the partitions and vertical partitions, the necessary indexes are produced as well. 
+
+
+Our algorithm enables fine-tuning of data distribution, significantly reducing data access for query answering.   
+
 
 ## How to get DIAERESIS
 ```
@@ -83,3 +92,4 @@ All queries used in our experimental evaluation exists in #[queries](https://git
 If you have any problems using DIAERESIS fell free to send an email.
 * Georgia Troullinou (troulin@ics.forth.gr)
 * Haridimos Kondylakis (kondylak@ics.forth.gr)
+
