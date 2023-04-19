@@ -28,7 +28,7 @@ In every script modify all fields of spark submit (master, memory,path_to_jar et
 
 ### Script Arguments
 
- dataset_name: a specific name for each dataset. (same name must be used in all procedures for a specific dataset)
+* dataset_name: a specific name for each dataset. (same name must be used in all procedures for a specific dataset)
 
 * partition_num: the number of partitions formulated each dataset. (same number must be used in all procedures for a specific dataset)
 
