@@ -21,7 +21,7 @@ To run DIAERESIS you first need to install Apache Spark (version 2.2+) and Hadoo
 
 To run each of the components of DIAERESIS (partitioner, query translator, query executor) the appropriate script should be used.
 
-Inside of the folder scripts/ the appropriate scripts can be found. For partitioner DAP (run_dap.sh), for query translator (run_translator.sh) and for query executor (run_query.sh).
+Inside of the folder #scripts/# the appropriate scripts can be found. For partitioner DAP (run_dap.sh), for query translator (run_translator.sh) and for query executor (run_query.sh).
 
 Each script should be modified accordingly with the steps bellow. In every script modify all fields of spark submit (master, memory,path_to_jar etc.)
 
@@ -54,6 +54,25 @@ Each script should be modified accordingly with the steps bellow. In every scrip
 ```
 ./run_query.sh  dataset_name partition_num hdfs_path translated_queries_folder
 ```
+
+## Dataset
+All datasets used in our experimental evaluation exists in #dataset# folder.
+
+## Benchmark Queries 
+All queries used in our experimental evaluation exists in #queries# folder including the individual benchmark queries.
+
+#### Individual Queries
+* [LUBM 100](https://github.com/isl/DIAERESIS/tree/master/queries/lubm100_1300_2300)
+
+* [LUBM 1300](https://github.com/isl/DIAERESIS/tree/master/queries/lubm100_1300_2300) 
+
+* [LUBM 2300](https://github.com/isl/DIAERESIS/tree/master/queries/lubm100_1300_2300)
+
+* [LUBM 10240](https://github.com/isl/DIAERESIS/tree/master/queries/lubm10240)
+
+* [SWDF](https://github.com/isl/DIAERESIS/tree/master/queries/swdf)
+
+* [DBpedia](https://github.com/isl/DIAERESIS/tree/master/queries/dbpedia)
 
 ## Contact
 
