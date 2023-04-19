@@ -28,9 +28,9 @@ Each script should be modified accordingly with the steps bellow. In every scrip
 
 ### Script Arguments
 
-* dataset_name: a specific name for each dataset. (same name must be used in all procedures for a specific dataset)
+* **dataset_name:** a specific name for each dataset. (same name must be used in all procedures for a specific dataset)
 
-* partition_num: the number of partitions formulated each dataset. (same number must be used in all procedures for a specific dataset)
+***partition_num:** the number of partitions formulated each dataset. (same number must be used in all procedures for a specific dataset)
 
 * hdfs_path: hdfs base folder path
 
@@ -42,22 +42,22 @@ Each script should be modified accordingly with the steps bellow. In every scrip
 
 * translated_queries_folder: the folder with the result SQL queries translated from the input sparql queries
 
-### To partition data using DAP use the script run_dap like this:
+### Partition data using DAP use the script run_dap like this:
 ```
 ./run_dap.sh dataset_name partition_num hdfs_path instance_path schema_path
 ```
-### To translate sparql queries use the script run_translator like this:
+### Translate sparql queries use the script run_translator like this:
 ```
 ./run_translator.sh dataset_name partition_num hdfs_path sparql_input_folder
 ```
-### To execute the translated queries use the script run_translator like this:
+### Execute the translated queries use the script run_translator like this:
 ```
 ./run_query.sh  dataset_name partition_num hdfs_path translated_queries_folder
 ```
 
 ## Contact
 
-If you have any problems running DIAERESIS fell free to send an email.
+If you have any problems using DIAERESIS fell free to send an email.
 * Georgia Troullinou (troulin@ics.forth.gr)
 * Haridimos Kondylakis (kondylak@ics.forth.gr)
 
