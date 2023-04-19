@@ -2,13 +2,16 @@
 DIAERESIS is a novel platform that accepts as input an RDF dataset and effectively partitions it, minimizing data access and improving query answering efficiency.
 
 ## How to get DIAERESIS
+```
 git clone https://github.com/isl/DIAERESIS.git
+```
 
 
 ## Compile DIAERESIS
 First you need to install maven to build DIAERESIS Then in the root folder where pom.xml exists, run:
-
-#### mvn package
+```
+mvn package
+```
 
 A target folder should be created if everything builds correctly with the jar inside.
 
