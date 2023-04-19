@@ -56,7 +56,11 @@ Each script should be modified accordingly with the steps bellow. In every scrip
 ```
 
 ## Dataset
-All datasets used in our experimental evaluation exists in #dataset# folder.
+All datasets used in our experimental evaluation can be downloaded from the links.
+
+* [LUBM-10240: ](http://swat.cse.lehigh.edu/projects/lubm/)
+   	* [Download Data Dump](https://www.dropbox.com/s/4ifouv5n5pa4vdk/10240_new_str.tar.gz?dl=0)
+
 
 ## Benchmark Queries 
 All queries used in our experimental evaluation exists in #[queries](https://github.com/isl/DIAERESIS/tree/master/queries)# folder including the individual benchmark queries.
