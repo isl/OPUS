@@ -21,7 +21,7 @@ To run DIAERESIS you first need to install Apache Spark (version 2.2+) and Hadoo
 
 To run each of the components of DIAERESIS (partitioner, query translator, query executor) the appropriate script should be used.
 
-Inside of the folder #scripts/# the appropriate scripts can be found. For partitioner DAP (run_dap.sh), for query translator (run_translator.sh) and for query executor (run_query.sh).
+Inside of the folder #[scripts](https://github.com/isl/DIAERESIS/tree/master/scripts)# the appropriate scripts can be found. For partitioner DAP (run_dap.sh), for query translator (run_translator.sh) and for query executor (run_query.sh).
 
 Each script should be modified accordingly with the steps bellow. In every script modify all fields of spark submit (master, memory,path_to_jar etc.)
 
