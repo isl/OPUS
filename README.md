@@ -30,17 +30,17 @@ Each script should be modified accordingly with the steps bellow. In every scrip
 
 * **dataset_name:** a specific name for each dataset. (same name must be used in all procedures for a specific dataset)
 
-***partition_num:** the number of partitions formulated each dataset. (same number must be used in all procedures for a specific dataset)
+* **partition_num:** the number of partitions formulated each dataset. (same number must be used in all procedures for a specific dataset)
 
-* hdfs_path: hdfs base folder path
+* **hdfs_path:** hdfs base folder path
 
-* intance_path: hdfs path of dataset instances (.nt)
+* **intance_path:** hdfs path of dataset instances (.nt)
 
-* schema_path: hdfs path of dataset schema (triples format)
+* **schema_path:** hdfs path of dataset schema (triples format)
 
-* sparql_input_folder: input folder of sparql queries
+* s**parql_input_folder:** input folder of sparql queries
 
-* translated_queries_folder: the folder with the result SQL queries translated from the input sparql queries
+* **translated_queries_folder:** the folder with the result SQL queries translated from the input sparql queries
 
 ### Partition data using DAP use the script run_dap like this:
 ```
@@ -60,4 +60,3 @@ Each script should be modified accordingly with the steps bellow. In every scrip
 If you have any problems using DIAERESIS fell free to send an email.
 * Georgia Troullinou (troulin@ics.forth.gr)
 * Haridimos Kondylakis (kondylak@ics.forth.gr)
-
