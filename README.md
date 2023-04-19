@@ -38,7 +38,7 @@ Each script should be modified accordingly with the steps bellow. In every scrip
 
 * **schema_path:** hdfs path of dataset schema (triples format)
 
-* s**parql_input_folder:** input folder of sparql queries
+* **parql_input_folder:** input folder of sparql queries
 
 * **translated_queries_folder:** the folder with the result SQL queries translated from the input sparql queries
 
@@ -66,13 +66,13 @@ All datasets used in our experimental evaluation can be downloaded from the link
 All queries used in our experimental evaluation exists in #[queries](https://github.com/isl/DIAERESIS/tree/master/queries)# folder including the individual benchmark queries.
 
 #### Individual Queries
-* [LUBM 100](https://github.com/isl/DIAERESIS/tree/master/queries/lubm100_1300_2300)
+* [LUBM-100](https://github.com/isl/DIAERESIS/tree/master/queries/lubm100_1300_2300)
 
-* [LUBM 1300](https://github.com/isl/DIAERESIS/tree/master/queries/lubm100_1300_2300) 
+* [LUBM-1300](https://github.com/isl/DIAERESIS/tree/master/queries/lubm100_1300_2300) 
 
-* [LUBM 2300](https://github.com/isl/DIAERESIS/tree/master/queries/lubm100_1300_2300)
+* [LUBM-2300](https://github.com/isl/DIAERESIS/tree/master/queries/lubm100_1300_2300)
 
-* [LUBM 10240](https://github.com/isl/DIAERESIS/tree/master/queries/lubm10240)
+* [LUBM-10240](https://github.com/isl/DIAERESIS/tree/master/queries/lubm10240)
 
 * [SWDF](https://github.com/isl/DIAERESIS/tree/master/queries/swdf)
 
