@@ -27,7 +27,7 @@ To run each of the components of DIAERESIS (partitioner, query translator, query
 
 Inside of the folder #[scripts](https://github.com/isl/DIAERESIS/tree/master/scripts)# the appropriate scripts can be found. For partitioner DAP (run_dap.sh), for query translator (run_translator.sh) and for query executor (run_query.sh).
 
-Each script should be modified accordingly with the steps bellow. In every script modify all fields of spark submit (master, memory,path_to_jar etc.)
+Each script should be modified accordingly with the steps bellow. In every script modify all fields of spark submit (master, memory, path_to_jar etc.)
 
 
 ### Script Arguments
@@ -64,13 +64,17 @@ All the information about the datasets used in our experimental evaluation can b
 
 * We utilize the [LUBM](http://swat.cse.lehigh.edu/projects/lubm/) synthetic data generator (UBA1.7) to create the following datasets:
 
-	* **LUBM-100** with 100 universities
+	* **LUBM-100** with 100 universities 
 	* **LUBM-1300** with 1300 universities
 	* **LUBM-23000** with 2300 universities
+		* [Download Schema of LUBM-100-1300-2300](https://users.ics.forth.gr/~kondylak/SWJ/lubm100_1300_2300.zip)
 	* **LUBM-10240** with 10240 universities
    		* [Download Data Dump of LUBM-10240](https://www.dropbox.com/s/4ifouv5n5pa4vdk/10240_new_str.tar.gz?dl=0)
-* **SWDF** 
+		* [Download Schema of LUBM-10240](https://users.ics.forth.gr/~kondylak/SWJ/lubm10240.zip)
+* **SWDF**
+	 * [Download Schema & Data Dump of SWDF](https://users.ics.forth.gr/~kondylak/SWJ/swdf.zip)
 * **DBpedia**
+ 	* [Download Schema & Data Dump of DBpedia](https://users.ics.forth.gr/~kondylak/SWJ/dbpedia.zip)
 
 ## Benchmark Queries 
 All queries used in our experimental evaluation exists in #[queries](https://github.com/isl/DIAERESIS/tree/master/queries)# folder including the individual benchmark queries.
