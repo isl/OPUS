@@ -69,12 +69,13 @@ All the information about the datasets used in our experimental evaluation can b
 	* **LUBM-23000** with 2300 universities
 		* [Download Schema of LUBM-100-1300-2300](https://users.ics.forth.gr/~kondylak/SWJ/lubm100_1300_2300.zip)
 	* **LUBM-10240** with 10240 universities
-   		* [Download Data Dump of LUBM-10240](https://www.dropbox.com/s/4ifouv5n5pa4vdk/10240_new_str.tar.gz?dl=0)
 		* [Download Schema of LUBM-10240](https://users.ics.forth.gr/~kondylak/SWJ/lubm10240.zip)
+   		* [Download Data Dump of LUBM-10240](https://www.dropbox.com/s/4ifouv5n5pa4vdk/10240_new_str.tar.gz?dl=0)
 * **SWDF**
-	 * [Download Schema & Data Dump of SWDF](https://users.ics.forth.gr/~kondylak/SWJ/swdf.zip)
+	* [Download Schema & Data Dump of SWDF](https://users.ics.forth.gr/~kondylak/SWJ/swdf.zip)
 * **DBpedia**
- 	* [Download Schema & Data Dump of DBpedia](https://users.ics.forth.gr/~kondylak/SWJ/dbpedia.zip)
+ 	* [Download Schema of DBpedia](https://users.ics.forth.gr/~kondylak/SWJ/dbpedia.zip)
+	* [Download Data Dump of DBpedia](https://drive.google.com/file/d/1QX1-if3oa1fykJ7zJvC3l8ZwflvTeQce/view?usp=share_link)
 
 ## Benchmark Queries 
 All queries used in our experimental evaluation exists in #[queries](https://github.com/isl/DIAERESIS/tree/master/queries)# folder including the individual benchmark queries.
